@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CockpitHardwareHUB_v2": {
+      "commandName": "Project",
+      "nativeDebugging": false
+    }
+  }
+}
