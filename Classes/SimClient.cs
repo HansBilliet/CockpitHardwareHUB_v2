@@ -15,18 +15,41 @@ namespace CockpitHardwareHUB_v2.Classes
 {
     internal static class SimClient
     {
+        // TEST ONLY
+        private static uint _iSPD_INC = 0;
+        private static uint _iSPD_DEC = 0;
+        // TEST ONLY END
+
         private static readonly WASimClient _WASimClient = new(1965);
         public static bool IsConnected { get { return _WASimClient.isConnected(); } }
+        private static int IsStarted = 0;
+
+        // CancellationTokenSource to stop the pumps
+        private static CancellationTokenSource _ctPumps;
 
         // Processing the Properties of Added and/or Removed Devices
         private static BlockingCollection<ProcessProperties> _ProcessPropertiesQueue = new();
-        private static CancellationTokenSource _ctProcessPropertiesPump;
         private static Task _ProcessPropertiesPump;
         public static ProcessProperties AddDeviceToProcessProperties { set => _ProcessPropertiesQueue.Add(value); }
+
+        // Process the Commands coming from HW Devices - they have format [iVarID]=[optional data]
+        private static BlockingCollection<string> _TxPumpQueue = new();
+        private static Task _TxPump;
+        public static string AddCmdToTxPumpQueue { set => _TxPumpQueue.Add(value); }    
 
         private static Action<bool> _ConnectionStatus = null;
 
         private static HR hr;  // store method invocation results for logging
+
+        public static void SetLogLevel(LogLevel logLevel)
+        {
+            // Set Client's callback logging level to display messages in the console.
+            _WASimClient.setLogLevel(logLevel, LogFacility.All, LogSource.Client);
+            // Lets also see some log messages from the server
+            _WASimClient.setLogLevel(logLevel, LogFacility.All, LogSource.Server);
+
+            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"LogLevel set to {logLevel}");
+        }
 
         // WASimCommander Event handlers
 
@@ -41,31 +64,13 @@ namespace CockpitHardwareHUB_v2.Classes
         {
             switch (ev.eventType)
             {
-                case ClientEventType.None:
+                case ClientEventType.ServerConnected: // We only consider connection to both Simulator and WASM Module (server), hence only listen to ServerConnected
+                    Start();
                     break;
-                case ClientEventType.SimConnecting:
-                    break;
-                case ClientEventType.SimConnected:
-                    break;
-                case ClientEventType.ServerConnecting:
-                    break;
-                case ClientEventType.ServerConnected: // We only consider connection to both Simulator and WASM Module (server)
-                    _ConnectionStatus?.Invoke(true);
-                    _ctProcessPropertiesPump = new(); // create a CancellationTokenSource
-                    _ProcessPropertiesPump = Task.Run(() => ProcessPropertiesPump(_ctProcessPropertiesPump.Token), _ctProcessPropertiesPump.Token); // Start processing properties of added or removed devices
-                    Start(); // Start the DeviceServer
-                    break;
-                case ClientEventType.ServerDisconnected: // When Server is disconnected, we consider this as full disconnection
-                    _ConnectionStatus?.Invoke(false);
-                    _ctProcessPropertiesPump.Cancel(false); // cancel the CancellationTokenSource to stop the ProcessPropertiesPump
-                    _ProcessPropertiesPump.Wait(100);
-                    _ProcessPropertiesPump.Dispose();
-                    _ProcessPropertiesPump = null;
-                    Stop(); // Stop the DeviceServer
-                    break;
+                case ClientEventType.ServerDisconnected: // Whatever disconnect that happens is considered as a disconnection, hence we listen to all of them
                 case ClientEventType.SimDisconnecting:
-                    break;
                 case ClientEventType.SimDisconnected:
+                    Stop();
                     break;
             }
 
@@ -96,27 +101,6 @@ namespace CockpitHardwareHUB_v2.Classes
             }
             else
                 Logging.LogLine(LogLevel.Info, LoggingSource.APP, "Could not convert result data to value!");
-        }
-
-        private static void ProcessPropertiesPump(CancellationToken cancellationToken)
-        {
-            try
-            {
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    ProcessProperties pp = _ProcessPropertiesQueue.Take(cancellationToken);
-                    Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.ProcessPropertiesPump: {pp.ProcessAction} for {pp.Device.PortName}");
-
-                    // just for fun, let's do a registration of a Custom Event
-                    uint uEventId;
-                    _WASimClient.registerCustomEvent("A32NX.FCU_SPD_INC", out uEventId);
-                    Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"A32NX.FCU_SPD_INC gives {uEventId}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.ProcessPropertiesPump: Exception {ex}");
-            }
         }
 
         public static void Init(Action<bool> ConnectionStatus)
@@ -172,6 +156,10 @@ namespace CockpitHardwareHUB_v2.Classes
 
             SetLogLevel(Logging.SetLogLevel);
 
+            // just register 2 commands for fun
+            _WASimClient.registerCustomEvent("A32NX.FCU_SPD_INC", out _iSPD_INC);
+            _WASimClient.registerCustomEvent("A32NX.FCU_SPD_DEC", out _iSPD_DEC);
+
             return;
         }
 
@@ -186,22 +174,124 @@ namespace CockpitHardwareHUB_v2.Classes
 
         private static void Start()
         {
+            // Assumed that ClientStatusHandler is re-entrant, make sure that Start() is only executed once
+            // If IsStarted == 0, then make it 1, and return the previous value 0 --> execute Start
+            // If IsStarted == 1, then don't change it, and return the previous value 1 --> don't do anything, we are already started
+            if (Interlocked.CompareExchange(ref IsStarted, 1, 0) == 1)
+                return; // Already started
+
+            _ConnectionStatus?.Invoke(true);
+
+            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.StartPumps.");
+
+            // create the CancellationTokenSource
+            _ctPumps = new();
+
+            // Start processing properties of added or removed devices
+            _ProcessPropertiesPump = Task.Run(() => ProcessPropertiesPump(_ctPumps.Token), _ctPumps.Token);
+            
+            // Start sending variables and/or commands to the simulator
+            _TxPump = Task.Run(() => TxPump(_ctPumps.Token), _ctPumps.Token);
+            
             DeviceServer.Start();
         }
 
         private static void Stop()
         {
+            // Assumed that ClientStatusHandler is re-entrant, make sure that Stop() is only executed once
+            // If IsStarted == 1, then make it 0, and return the previous value 1 --> execute Start
+            // If IsStarted == 0, then don't change it, and return the previous value 0 --> don't do anything, we are already started
+            if (Interlocked.CompareExchange(ref IsStarted, 0, 1) == 0)
+                return; // Already stopped
+
+            _ConnectionStatus?.Invoke(false);
+
             DeviceServer.Stop();
+
+            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.StopPumps.");
+
+            // cancel the CancellationTokenSource
+            _ctPumps.Cancel(false);
+
+            // wait for the pumps to stop running
+            if (!Task.WaitAll(new Task[] { _ProcessPropertiesPump, _TxPump }, 250))
+                // One task seems not to have stopped in time
+                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.Stop: One of the pumps didn't stop in time.");
+            else
+                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.Stop: All pumps stopped in time.");
+
+            // cleanup
+            _ctPumps.Dispose();
+            _ProcessPropertiesPump = null;
+            _TxPump = null;
         }
 
-        public static void SetLogLevel(LogLevel logLevel)
+        private static void ProcessPropertiesPump(CancellationToken ct)
         {
-            // Set Client's callback logging level to display messages in the console.
-            _WASimClient.setLogLevel(logLevel, LogFacility.All, LogSource.Client);
-            // Lets also see some log messages from the server
-            _WASimClient.setLogLevel(logLevel, LogFacility.All, LogSource.Server);
+            bool bPumpStarted = false;
 
-            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"LogLevel set to {logLevel}");
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    // Only for logging purposes
+                    if (!bPumpStarted)
+                        Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.ProcessPropertiesPump started.");
+                    bPumpStarted = true;
+
+                    ProcessProperties pp = _ProcessPropertiesQueue.Take(ct);
+                    Logging.LogLine(LogLevel.Trace, LoggingSource.APP, $"SimClient.ProcessPropertiesPump: {pp.ProcessAction} for {pp.Device.PortName}");
+
+                    // simulate putting SimId's
+                    int iSimId = 1;
+                    foreach (Property prop in pp.Device.Properties)
+                    {
+                        prop.iSimId = iSimId++;
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    Logging.LogLine(LogLevel.Trace, LoggingSource.APP, $"SimClient.ProcessPropertiesPump throws OperationCanceledException.");
+                }
+                catch (Exception ex)
+                {
+                    Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.ProcessPropertiesPump throws {ex}");
+                }
+            }
+            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.ProcessPropertiesPump stopped.");
         }
+
+        private static void TxPump(CancellationToken ct)
+        {
+            bool bPumpStarted = false;
+
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    // Only for logging purposes
+                    if (!bPumpStarted)
+                        Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.TxPump started.");
+                    bPumpStarted = true;
+
+                    string sCmd = _TxPumpQueue.Take(ct);
+                    Logging.LogLine(LogLevel.Trace, LoggingSource.APP, $"SimClient.TxPump: {sCmd}");
+                    if (sCmd.Substring(0, 4) == "0001")
+                        _WASimClient.sendKeyEvent(_iSPD_INC);
+                    if (sCmd.Substring(0, 4) == "0002")
+                        _WASimClient.sendKeyEvent(_iSPD_DEC);
+                }
+                catch (OperationCanceledException)
+                {
+                    Logging.LogLine(LogLevel.Trace, LoggingSource.APP, $"SimClient.TxPump throws OperationCanceledException.");
+                }
+                catch (Exception ex)
+                {
+                    Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.TxPump throws {ex}");
+                }
+            }
+            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.TxPump stopped.");
+        }
+
     }
 }

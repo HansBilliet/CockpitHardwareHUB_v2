@@ -22,14 +22,14 @@ namespace CockpitHardwareHUB_v2.Classes
 {
     public class SerialPortEventArgs : EventArgs
     {
-        public SerialPortEventArgs(string deviceID, int vendorID, int productID, string pnpDeviceID)
+        public SerialPortEventArgs(string portName, int vendorID, int productID, string pnpDeviceID)
         {
-            DeviceID = deviceID; //  This is the port eg. "COM1"
+            PortName = portName; //  This is the port eg. "COM1"
             VendorID = vendorID;
             ProductID = productID;
             PNPDeviceID = pnpDeviceID;
         }
-        public string DeviceID;
+        public string PortName;
         public int VendorID;
         public int ProductID;
         public string PNPDeviceID;
