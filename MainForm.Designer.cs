@@ -31,6 +31,7 @@
             grpConnect = new GroupBox();
             btnConnect = new Button();
             grpLogging = new GroupBox();
+            cbLogToFile = new CheckBox();
             dgvLogging = new DataGridView();
             btnLoggingClear = new Button();
             cbLogLevel = new ComboBox();
@@ -38,6 +39,7 @@
             txtLoggingFilter = new TextBox();
             lblLoggingFilter = new Label();
             grpDevices = new GroupBox();
+            txtLogFileName = new TextBox();
             grpConnect.SuspendLayout();
             grpLogging.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvLogging).BeginInit();
@@ -65,23 +67,36 @@
             // 
             // grpLogging
             // 
+            grpLogging.Controls.Add(txtLogFileName);
+            grpLogging.Controls.Add(cbLogToFile);
             grpLogging.Controls.Add(dgvLogging);
             grpLogging.Controls.Add(btnLoggingClear);
             grpLogging.Controls.Add(cbLogLevel);
             grpLogging.Controls.Add(lblLoggingLevel);
             grpLogging.Controls.Add(txtLoggingFilter);
             grpLogging.Controls.Add(lblLoggingFilter);
-            grpLogging.Location = new Point(305, 355);
+            grpLogging.Location = new Point(305, 317);
             grpLogging.Name = "grpLogging";
-            grpLogging.Size = new Size(715, 233);
+            grpLogging.Size = new Size(715, 271);
             grpLogging.TabIndex = 1;
             grpLogging.TabStop = false;
             grpLogging.Text = "Logging";
             // 
+            // cbLogToFile
+            // 
+            cbLogToFile.AutoSize = true;
+            cbLogToFile.Location = new Point(6, 45);
+            cbLogToFile.Name = "cbLogToFile";
+            cbLogToFile.Size = new Size(79, 19);
+            cbLogToFile.TabIndex = 7;
+            cbLogToFile.Text = "Log to file";
+            cbLogToFile.UseVisualStyleBackColor = true;
+            cbLogToFile.CheckedChanged += cbLogToFile_CheckedChanged;
+            // 
             // dgvLogging
             // 
             dgvLogging.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dgvLogging.Location = new Point(6, 45);
+            dgvLogging.Location = new Point(6, 84);
             dgvLogging.Name = "dgvLogging";
             dgvLogging.RowTemplate.Height = 25;
             dgvLogging.Size = new Size(703, 181);
@@ -143,6 +158,14 @@
             grpDevices.TabStop = false;
             grpDevices.Text = "USB Devices";
             // 
+            // txtLogFileName
+            // 
+            txtLogFileName.Location = new Point(91, 45);
+            txtLogFileName.Name = "txtLogFileName";
+            txtLogFileName.ReadOnly = true;
+            txtLogFileName.Size = new Size(618, 23);
+            txtLogFileName.TabIndex = 8;
+            // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -178,5 +201,7 @@
         private Button btnLoggingClear;
         private DataGridView dgvLogging;
         private GroupBox grpDevices;
+        private CheckBox cbLogToFile;
+        private TextBox txtLogFileName;
     }
 }

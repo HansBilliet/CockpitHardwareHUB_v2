@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Security.Policy;
-using System.Text;
-using System.Threading.Tasks;
-using WASimCommander.CLI;
+﻿using WASimCommander.CLI;
 using WASimCommander.CLI.Client;
 using WASimCommander.CLI.Enums;
 using WASimCommander.CLI.Structs;
@@ -15,38 +7,19 @@ namespace CockpitHardwareHUB_v2.Classes
 {
     internal static class SimClient
     {
-        // TEST ONLY
-        private static uint _iSPD_INC = 0;
-        private static uint _iSPD_DEC = 0;
-        // TEST ONLY END
-
         private static readonly WASimClient _WASimClient = new(1965);
         public static bool IsConnected { get { return _WASimClient.isConnected(); } }
         private static int IsStarted = 0;
 
-        // CancellationTokenSource to stop the pumps
-        private static CancellationTokenSource _ctPumps;
-
-        // Processing the Properties of Added and/or Removed Devices
-        private static BlockingCollection<ProcessProperties> _ProcessPropertiesQueue = new();
-        private static Task _ProcessPropertiesPump;
-        public static ProcessProperties AddDeviceToProcessProperties { set => _ProcessPropertiesQueue.Add(value); }
-
-        // Process the Commands coming from HW Devices - they have format [iVarID]=[optional data]
-        private static BlockingCollection<string> _TxPumpQueue = new();
-        private static Task _TxPump;
-        public static string AddCmdToTxPumpQueue { set => _TxPumpQueue.Add(value); }    
-
         private static Action<bool> _ConnectionStatus = null;
-
-        private static HR hr;  // store method invocation results for logging
 
         public static void SetLogLevel(LogLevel logLevel)
         {
-            // Set Client's callback logging level to display messages in the console.
-            _WASimClient.setLogLevel(logLevel, LogFacility.All, LogSource.Client);
-            // Lets also see some log messages from the server
-            _WASimClient.setLogLevel(logLevel, LogFacility.All, LogSource.Server);
+            // Only use the Remote LogFacility for Client and Server
+            _WASimClient.setLogLevel(logLevel, LogFacility.Remote, LogSource.Client);
+            _WASimClient.setLogLevel(LogLevel.None, LogFacility.Console | LogFacility.File, LogSource.Client);
+            _WASimClient.setLogLevel(logLevel, LogFacility.Remote, LogSource.Server);
+            _WASimClient.setLogLevel(LogLevel.None, LogFacility.Console | LogFacility.File, LogSource.Server);
 
             Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"LogLevel set to {logLevel}");
         }
@@ -70,11 +43,11 @@ namespace CockpitHardwareHUB_v2.Classes
                 case ClientEventType.ServerDisconnected: // Whatever disconnect that happens is considered as a disconnection, hence we listen to all of them
                 case ClientEventType.SimDisconnecting:
                 case ClientEventType.SimDisconnected:
-                    Stop();
+                    Task.Run(() => Stop());
                     break;
             }
 
-            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"Client event {ev.eventType} - \"{ev.message}\"; Client status: {ev.status}");
+            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"Simclient.ClientStatusHandler: Client event {ev.eventType} - \"{ev.message}\" - Client status: {ev.status}");
         }
 
         // Event handler for showing listing results (eg. local vars list)
@@ -86,21 +59,51 @@ namespace CockpitHardwareHUB_v2.Classes
         // Event handler to process data value subscription updates.
         private static void DataSubscriptionHandler(DataRequestRecord dr)
         {
-            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"<< Got Data for request {dr.requestId} \"{dr.nameOrCode}\" with Value: ");
-            // Convert the received data into a value using DataRequestRecord's tryConvert() methods.
-            // This could be more efficient in a "real" application, but it's good enough for our tests with only 2 value types.
-            if (dr.tryConvert(out float fVal))
-                Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"(float) {fVal}");
-            else if (dr.tryConvert(out double dVal))
-                Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"(double) {dVal}");
-            else if (dr.tryConvert(out int iVal))
-                Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"(int) {iVal}");
-            else if (dr.tryConvert(out string sVal))
+            bool bConversionSucceeded;
+
+            SimVar simVar = SimVar.GetSimVarById((int)dr.requestId);
+            if (simVar == null)
             {
-                Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"(string) \"{sVal}\"");
+                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.DataSubscriptionHandler: {dr.requestId} \"{dr.nameOrCode}\" - Couldn't find SimVar");
+                return;
             }
-            else
-                Logging.LogLine(LogLevel.Info, LoggingSource.APP, "Could not convert result data to value!");
+
+            switch (simVar.ValType)
+            {
+                case ValueTypes.DATA_TYPE_INT8:
+                    if (bConversionSucceeded = dr.tryConvert(out byte i8Val))
+                        simVar.sValue = i8Val.ToString();
+                    break;
+                case ValueTypes.DATA_TYPE_INT32:
+                    if (bConversionSucceeded = dr.tryConvert(out int i32Val))
+                        simVar.sValue = i32Val.ToString();
+                    break;
+                case ValueTypes.DATA_TYPE_INT64:
+                    if (bConversionSucceeded = dr.tryConvert(out long i64Val))
+                        simVar.sValue = i64Val.ToString();
+                    break;
+                case ValueTypes.DATA_TYPE_FLOAT:
+                    if (bConversionSucceeded = dr.tryConvert(out float fVal))
+                        simVar.sValue = fVal.ToString("0.000", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
+                    break;
+                case ValueTypes.DATA_TYPE_DOUBLE:
+                    if (bConversionSucceeded = dr.tryConvert(out double dVal))
+                        simVar.sValue = dVal.ToString("0.000", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
+                    break;
+                default:
+                    if (bConversionSucceeded = dr.tryConvert(out string sVal))
+                        simVar.sValue = sVal;
+                    break;
+            }
+
+            if (!bConversionSucceeded)
+            {
+                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.DataSubscriptionHandler: {dr.requestId} \"{dr.nameOrCode}\" - Conversion failed");
+                return;
+            }
+
+            Logging.LogLine(LogLevel.Debug, LoggingSource.APP, $"SimClient.DataSubscriptionHandler: {dr.requestId} \"{dr.nameOrCode}\" with value \"{simVar.sValue}\"");
+            simVar.DispatchSimVar();
         }
 
         public static void Init(Action<bool> ConnectionStatus)
@@ -116,17 +119,19 @@ namespace CockpitHardwareHUB_v2.Classes
             _WASimClient.OnDataReceived += DataSubscriptionHandler;
             _WASimClient.OnListResults += ListResultsHandler;
 
-            Logging.LogLine(LogLevel.Info, LoggingSource.APP, "SimClient Initialized");
+            Logging.LogLine(LogLevel.Info, LoggingSource.APP, "SimClient.Init: SimClient Initialized");
         }
 
         public static void Connect()
         {
+            HR hr;
+
             if (!_WASimClient.isInitialized())
             {
                 // Not yet connected to the Simulator, try to connect
                 if ((hr = _WASimClient.connectSimulator()) != HR.OK)
                 {
-                    Logging.LogLine(LogLevel.Info, LoggingSource.APP, "Cannot connect to Simulator, quitting. Error: " + hr.ToString());
+                    Logging.LogLine(LogLevel.Error, LoggingSource.APP, "SimClient.Connect: Cannot connect to Simulator, quitting. Error: " + hr.ToString());
                     return; // There is nothing more we can do
                 }
             }
@@ -135,20 +140,20 @@ namespace CockpitHardwareHUB_v2.Classes
             uint version = _WASimClient.pingServer();
             if (version == 0)
             {
-                Logging.LogLine(LogLevel.Info, LoggingSource.APP, "Server did not respond to ping, quitting.");
+                Logging.LogLine(LogLevel.Error, LoggingSource.APP, "SimClient.Connect: Server did not respond to ping, quitting.");
                 _WASimClient.disconnectSimulator();
                 return;
             }
 
             // Decode version number to dotted format and print it
-            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"Found WASimModule Server v{version >> 24}.{version >> 16 & 0xFF}.{version >> 8 & 0xFF}.{version & 0xFF}");
+            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.Connect: Found WASimModule Server v{version >> 24}.{version >> 16 & 0xFF}.{version >> 8 & 0xFF}.{version & 0xFF}");
 
             if (!_WASimClient.isConnected())
             {
                 // Not yet connected to the Server, try to connect
                 if ((hr = _WASimClient.connectServer()) != HR.OK)
                 {
-                    Logging.LogLine(LogLevel.Info, LoggingSource.APP, "Server connection failed, quitting. Error: " + hr.ToString());
+                    Logging.LogLine(LogLevel.Error, LoggingSource.APP, "SimClient.Connect: Server connection failed, quitting. Error: " + hr.ToString());
                     _WASimClient.disconnectSimulator();
                     return;
                 }
@@ -156,15 +161,13 @@ namespace CockpitHardwareHUB_v2.Classes
 
             SetLogLevel(Logging.SetLogLevel);
 
-            // just register 2 commands for fun
-            _WASimClient.registerCustomEvent("A32NX.FCU_SPD_INC", out _iSPD_INC);
-            _WASimClient.registerCustomEvent("A32NX.FCU_SPD_DEC", out _iSPD_DEC);
-
             return;
         }
 
-        public static void Disconnect()
+        public static async Task Disconnect()
         {
+            await Stop();
+
             if (_WASimClient.isConnected())
                 _WASimClient.disconnectServer();
 
@@ -174,7 +177,7 @@ namespace CockpitHardwareHUB_v2.Classes
 
         private static void Start()
         {
-            // Assumed that ClientStatusHandler is re-entrant, make sure that Start() is only executed once
+            // Be suspicious, and assume that the call needs to be re-entrant, hence make it threadsafe
             // If IsStarted == 0, then make it 1, and return the previous value 0 --> execute Start
             // If IsStarted == 1, then don't change it, and return the previous value 1 --> don't do anything, we are already started
             if (Interlocked.CompareExchange(ref IsStarted, 1, 0) == 1)
@@ -182,23 +185,12 @@ namespace CockpitHardwareHUB_v2.Classes
 
             _ConnectionStatus?.Invoke(true);
 
-            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.StartPumps.");
-
-            // create the CancellationTokenSource
-            _ctPumps = new();
-
-            // Start processing properties of added or removed devices
-            _ProcessPropertiesPump = Task.Run(() => ProcessPropertiesPump(_ctPumps.Token), _ctPumps.Token);
-            
-            // Start sending variables and/or commands to the simulator
-            _TxPump = Task.Run(() => TxPump(_ctPumps.Token), _ctPumps.Token);
-            
             DeviceServer.Start();
         }
 
-        private static void Stop()
+        private static async Task Stop()
         {
-            // Assumed that ClientStatusHandler is re-entrant, make sure that Stop() is only executed once
+            // Be suspicious, and assume that the call needs to be re-entrant, hence make it threadsafe
             // If IsStarted == 1, then make it 0, and return the previous value 1 --> execute Start
             // If IsStarted == 0, then don't change it, and return the previous value 0 --> don't do anything, we are already started
             if (Interlocked.CompareExchange(ref IsStarted, 0, 1) == 0)
@@ -206,92 +198,194 @@ namespace CockpitHardwareHUB_v2.Classes
 
             _ConnectionStatus?.Invoke(false);
 
-            DeviceServer.Stop();
-
-            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.StopPumps.");
-
-            // cancel the CancellationTokenSource
-            _ctPumps.Cancel(false);
-
-            // wait for the pumps to stop running
-            if (!Task.WaitAll(new Task[] { _ProcessPropertiesPump, _TxPump }, 250))
-                // One task seems not to have stopped in time
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.Stop: One of the pumps didn't stop in time.");
-            else
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.Stop: All pumps stopped in time.");
-
-            // cleanup
-            _ctPumps.Dispose();
-            _ProcessPropertiesPump = null;
-            _TxPump = null;
+            await DeviceServer.Stop();
         }
 
-        private static void ProcessPropertiesPump(CancellationToken ct)
+        public static bool RegisterSimVar(SimVar simVar)
         {
-            bool bPumpStarted = false;
+            if (!IsConnected || simVar.bIsRegistered)
+                return false;
 
-            while (!ct.IsCancellationRequested)
+            switch (simVar.cVarType)
             {
-                try
-                {
-                    // Only for logging purposes
-                    if (!bPumpStarted)
-                        Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.ProcessPropertiesPump started.");
-                    bPumpStarted = true;
-
-                    ProcessProperties pp = _ProcessPropertiesQueue.Take(ct);
-                    Logging.LogLine(LogLevel.Trace, LoggingSource.APP, $"SimClient.ProcessPropertiesPump: {pp.ProcessAction} for {pp.Device.PortName}");
-
-                    // simulate putting SimId's
-                    int iSimId = 1;
-                    foreach (Property prop in pp.Device.Properties)
+                case 'A':
+                    if (simVar.bWrite)
                     {
-                        prop.iSimId = iSimId++;
+                        // TODO - might be nothing needed - maybe need a different external Id for Write and Read?
                     }
-                }
-                catch (OperationCanceledException)
-                {
-                    Logging.LogLine(LogLevel.Trace, LoggingSource.APP, $"SimClient.ProcessPropertiesPump throws OperationCanceledException.");
-                }
-                catch (Exception ex)
-                {
-                    Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.ProcessPropertiesPump throws {ex}");
-                }
+                    if (simVar.bRead)
+                    {
+                        int Id;
+                        HR hr;
+                        hr = _WASimClient.lookup(LookupItemType.SimulatorVariable, simVar.sVarName, out Id);
+                        if (hr != HR.OK)
+                        {
+                            Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.RegisterSimVar: {simVar.sVarName} failed with {hr}");
+                            return false;
+                        }
+                        simVar.ExternalId = (uint)Id;
+                        DataRequest dr = new((uint)simVar.iVarId, simVar.sVarName, simVar.sUnit, simVar.bIndex, simVar.ValType);
+                        _WASimClient.saveDataRequestAsync(dr);
+                        simVar.bIsRegistered = true;
+                        Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.RegisterSimVar: {simVar.sVarName} with Id's {simVar.iVarId}/{simVar.ExternalId} success");
+                    }
+                    break;
+
+                case 'L':
+                    if (simVar.bWrite)
+                    {
+                        // TODO - might be nothing needed - maybe need a different external Id for Write and Read?
+                    }
+                    if (simVar.bRead)
+                    {
+                        // first lookup to get the ID
+                        int Id;
+                        HR hr;
+                        hr = _WASimClient.lookup(LookupItemType.LocalVariable, simVar.sVarName, out Id);
+                        if (hr != HR.OK)
+                        {
+                            Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.RegisterSimVar: {simVar.sVarName} failed with {hr}");
+                            return false;
+                        }
+                        simVar.ExternalId = (uint)Id;
+                        DataRequest dr = new((uint)simVar.iVarId, 'L', simVar.sVarName, simVar.ValType);
+                        _WASimClient.saveDataRequestAsync(dr);
+                        simVar.bIsRegistered = true;
+                        Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.RegisterSimVar: {simVar.sVarName} with Id's {simVar.iVarId}/{simVar.ExternalId} success");
+                    }
+                    break;
+
+                case 'K':
+                    if (simVar.bWrite)
+                    {
+                        if (simVar.bCustomEvent)
+                        {
+                            // Custom Events
+                            uint uCustomEventId;
+                            HR hr = _WASimClient.registerCustomEvent(simVar.sVarName, out uCustomEventId);
+                            if (hr != HR.OK)
+                            {
+                                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.RegisterSimVar: {simVar.sVarName} failed with {hr}");
+                                return false;
+                            }
+                            simVar.ExternalId = uCustomEventId;
+                            simVar.bIsRegistered = true;
+                            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.RegisterSimVar: {simVar.sVarName} with Id's {simVar.iVarId}/{uCustomEventId} success");
+                        }
+                        else
+                        {
+                            // Simulator Events
+
+                            // TODO
+                        }
+                    }
+                    break;
+
+                case 'X':
+                    if (simVar.bWrite)
+                    {
+                        // register X-type as calculator code events
+                        RegisteredEvent ev = new RegisteredEvent((uint)simVar.iVarId, simVar.sVarName);
+                        HR hr = _WASimClient.registerEvent(ev);
+                        if (hr != HR.OK)
+                        {
+                            Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.RegisterSimVar: {simVar.sVarName} failed with {hr}");
+                            return false;
+                        }
+                        simVar.bIsRegistered = true;
+                        Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.RegisterSimVar: {simVar.sVarName} with Id {simVar.iVarId} success");
+                    }
+                    if (simVar.bRead)
+                    {
+                        // TODO
+                    }
+                    break;
             }
-            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.ProcessPropertiesPump stopped.");
+            return true;
         }
 
-        private static void TxPump(CancellationToken ct)
+        public static void UnregisterSimVar(SimVar simVar)
         {
-            bool bPumpStarted = false;
-
-            while (!ct.IsCancellationRequested)
+            if (!IsConnected || !simVar.bIsRegistered)
             {
-                try
-                {
-                    // Only for logging purposes
-                    if (!bPumpStarted)
-                        Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.TxPump started.");
-                    bPumpStarted = true;
-
-                    string sCmd = _TxPumpQueue.Take(ct);
-                    Logging.LogLine(LogLevel.Trace, LoggingSource.APP, $"SimClient.TxPump: {sCmd}");
-                    if (sCmd.Substring(0, 4) == "0001")
-                        _WASimClient.sendKeyEvent(_iSPD_INC);
-                    if (sCmd.Substring(0, 4) == "0002")
-                        _WASimClient.sendKeyEvent(_iSPD_DEC);
-                }
-                catch (OperationCanceledException)
-                {
-                    Logging.LogLine(LogLevel.Trace, LoggingSource.APP, $"SimClient.TxPump throws OperationCanceledException.");
-                }
-                catch (Exception ex)
-                {
-                    Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.TxPump throws {ex}");
-                }
+                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.UnregisterSimVar: {simVar.sVarName} failed {IsConnected} {IsStarted} {simVar.bIsRegistered}");
+                return;
             }
-            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.TxPump stopped.");
+
+            switch (simVar.cVarType)
+            {
+                case 'A':
+                    if (simVar.bRead)
+                    {
+                        HR hr = _WASimClient.removeDataRequest((uint)simVar.iVarId);
+                        if (hr != HR.OK)
+                            Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.UnregisterSimVar: {simVar.sVarName} failed with {hr}");
+                        else
+                            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.UnregisterSimVar: {simVar.sVarName} with Id's {simVar.iVarId}/{simVar.ExternalId} success");
+                    }
+                    break;
+
+                case 'L':
+                    if (simVar.bRead)
+                    {
+                        HR hr = _WASimClient.removeDataRequest((uint)simVar.iVarId);
+                        if (hr != HR.OK)
+                            Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.UnregisterSimVar: {simVar.sVarName} failed with {hr}");
+                        else
+                            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.UnregisterSimVar: {simVar.sVarName} with Id's {simVar.iVarId}/{simVar.ExternalId} success");
+                    }
+                    break;
+
+                case 'K':
+                    if (simVar.bCustomEvent)
+                    {
+                    }
+                    break;
+
+                case 'X':
+                    if (simVar.bWrite)
+                    {
+                        HR hr = _WASimClient.removeEvent((uint)simVar.iVarId);
+                        if (hr != HR.OK)
+                            Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.UnregisterSimVar: {simVar.sVarName} failed with {hr}");
+                        else
+                            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.UnregisterSimVar: {simVar.sVarName} with Id {simVar.iVarId} success");
+                    }
+                    if (simVar.bRead)
+                    {
+
+                    }
+                    break;
+            }
+            simVar.ExternalId = 0;
+            simVar.bIsRegistered = false;
         }
 
+        public static void TriggerSimVar(SimVar simVar, string sData)
+        {
+            if (!IsConnected || IsStarted == 0 || !simVar.bIsRegistered || !simVar.bWrite)
+                return;
+
+            switch (simVar.cVarType)
+            {
+                case 'A':
+                    break;
+
+                case 'L':
+                    break;
+
+                case 'K':
+                    if (simVar.bCustomEvent)
+                    {
+                        uint.TryParse(sData, out uint uData);
+                        _WASimClient.sendKeyEvent(simVar.ExternalId, uData);
+                    }
+                    break;
+
+                case 'X':
+                    _WASimClient.transmitEvent((uint)simVar.iVarId);
+                    break;
+            }
+        }
     }
 }

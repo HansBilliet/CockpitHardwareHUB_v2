@@ -14,15 +14,16 @@ namespace CockpitHardwareHUB_v2
         private const string sVersion = "v0.01 - 01NOV2023";
 
         // Column width in DataGridViews
-        private const int wTimeStamp = 80;
+        private const int wTimeStamp = 105;
         private const int wLevel = 50;
         private const int wSource = 50;
         private const int wLogLine = 5000;
 
         // Datasources for DataGridView
         private DataTable dtLogLines = new DataTable();
-        //private ConcurrentQueue<string> _LogData = new();
         private const int MaxLogLines = 500;
+        // Logfile setting
+        private bool _bLogToFile = false;
 
         // Timer for UI updates
         private Timer _Timer;
@@ -42,6 +43,8 @@ namespace CockpitHardwareHUB_v2
             SimClient.Init(OnConnectStatus);
 
             cbLogLevel.Text = Logging.sLogLevel;
+            cbLogToFile.Checked = _bLogToFile;
+            txtLogFileName.Text = FileLogger.sFileName;
 
             // Initialize timer
             _Timer = new Timer();
@@ -82,8 +85,10 @@ namespace CockpitHardwareHUB_v2
                 for (int i = 0; i < count; i++)
                 {
                     Logging.LogData.TryDequeue(out LogData logData);
-                    dtLogLines.Rows.Add(new string[] { logData.sTimeStamp, logData.sLogLevel, logData.sLoggingSource, logData.sLogLine });
+                    dtLogLines.Rows.Add(new string[] {logData.sTimeStamp, logData.sLogLevel, logData.sLoggingSource, logData.sLogLine});
+                    FileLogger.LogLine($"{logData.sTimeStamp} - {logData.sLogLevel} - {logData.sLoggingSource} - {logData.sLogLine}");
                 }
+                FileLogger.FlushFile();
 
                 if (dtLogLines.Rows.Count > MaxLogLines)
                     dtLogLines.Rows.RemoveAt(0);
@@ -161,7 +166,7 @@ namespace CockpitHardwareHUB_v2
             grpConnect.Text = $"MSFS2020 : {(bConnected ? "CONNECTED" : "DISCONNECTED")}";
         }
 
-        private void btnConnect_Click(object sender, EventArgs e)
+        private async void btnConnect_Click(object sender, EventArgs e)
         {
             if (!SimClient.IsConnected)
             {
@@ -169,7 +174,7 @@ namespace CockpitHardwareHUB_v2
             }
             else
             {
-                SimClient.Disconnect();
+                await SimClient.Disconnect();
             }
             UpdateUI_Connection(SimClient.IsConnected);
         }
@@ -188,6 +193,21 @@ namespace CockpitHardwareHUB_v2
         private void txtLoggingFilter_TextChanged(object sender, EventArgs e)
         {
             dtLogLines.DefaultView.RowFilter = $"[LogLine] LIKE '%{txtLoggingFilter.Text}%'";
+        }
+
+        private void cbLogToFile_CheckedChanged(object sender, EventArgs e)
+        {
+            if (cbLogToFile.Checked)
+            {
+                if (!FileLogger.OpenFile())
+                    cbLogToFile.Checked = false;
+            }
+            else
+                FileLogger.CloseFile();
+
+            txtLogFileName.Text = FileLogger.sFileName;
+
+            _bLogToFile = cbLogToFile.Checked;
         }
     }
 }

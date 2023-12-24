@@ -1,6 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.IO.Ports;
-using System.Security.Cryptography;
 using System.Text;
 using WASimCommander.CLI.Enums;
 
@@ -9,44 +8,42 @@ namespace CockpitHardwareHUB_v2.Classes
     // This Property Class maps a HW device Property against a registered SimVar in the SimClient
     internal class Property
     {
-        private readonly int _iPropId = -1; // This is the Id in the HW device (order of registration starting with 001)
-        private readonly string _sPropStr; // This is the full string of the Property as sent by the HW device
-        private int _iVarId = -1; // Once registered as a SimVar in the SimClient, a VarId is given
+        private readonly string _sPropStr; // This is the full string of the Property (ToUpper) as sent by the HW device
+        private int _iSimId = -1; // Once registered as a SimVar in the SimClient, a VarId is given
 
-        public int iPropId => _iPropId;
-        public string sPropStr => _sPropStr;
-        public int iSimId { get => _iVarId; set => _iVarId = value; }
+        internal string sPropStr => _sPropStr;
+        internal int iSimId { get => _iSimId; set => _iSimId = value; }
 
-        public Property(int iPropId, string sPropStr)
-        {
-            _iPropId = iPropId;
-            _sPropStr = sPropStr;
-        }
+        internal Property(string sPropStr) => _sPropStr = sPropStr.ToUpper();
     }
 
     internal class COMDevice
     {
+        // creates unique DeviceId
+        static private int _iNewDeviceId = 1;
+        private int iNewDeviceId => Interlocked.Increment(ref _iNewDeviceId);
+
+        private readonly int _iDeviceId;
+
         private readonly byte[] LF = { (byte)'\n' };
 
         private readonly SerialPort _serialPort = new();
-        public string PortName => _serialPort.PortName;
+        internal string PortName => _serialPort.PortName;
 
         private readonly string _PNPDeviceID;
-        public string PNPDeviceID => _PNPDeviceID;
+        internal string PNPDeviceID => _PNPDeviceID;
 
         private string _DeviceName;
-        public string DeviceName => _DeviceName;
+        internal string DeviceName => _DeviceName;
 
         private string _ProcessorType;
-        public string ProcessorType => _ProcessorType;
+        internal string ProcessorType => _ProcessorType;
 
-        // List of all properties of the HW Device
-        private List<Property> _Properties = new();
-        public List<Property> Properties => _Properties;    
+        // List of property strings - Property ID = [index + 1]
+        private readonly List<Property> _Properties = new();
 
-        // A ConcurrentQueue that gets commands sent from the SimClient to the devices. They are processed in the TxPump
+        // A ConcurrentQueue that gets commands from SimClient.DataSubscriptionHandler (via SimVar.DispatchSimVar) and processed in TxPump.
         private readonly BlockingCollection<string> _TxPumpQueue = new();
-        public string AddCmdToTxPumpQueue { set => _TxPumpQueue.Add(value); }
 
         // CancellationTokenSource to stop the pumps
         private CancellationTokenSource _ctPumps;
@@ -54,7 +51,7 @@ namespace CockpitHardwareHUB_v2.Classes
         // Transmit and Receive pumps
         private Task _RxPump;
         private Task _TxPump;
-        private bool _bPumpsRunning = false;
+        private int IsStarted = 0;
 
         // ManualResetEvent to block the Transmit pump until an Ack is received or timeout occurs
         private readonly ManualResetEvent _mreAck = new(false);
@@ -64,15 +61,17 @@ namespace CockpitHardwareHUB_v2.Classes
         private ulong _cmdTxCnt = 0;
         private ulong _nackCnt = 0;
 
-        public ulong cmdRxCnt { get => _cmdRxCnt; private set => _cmdRxCnt = value; }
-        public ulong cmdTxCnt { get => _cmdTxCnt; private set => _cmdTxCnt = value; }
-        public ulong nackCnt { get => _nackCnt; private set => _nackCnt = value; }
+        internal ulong cmdRxCnt { get => _cmdRxCnt; private set => _cmdRxCnt = value; }
+        internal ulong cmdTxCnt { get => _cmdTxCnt; private set => _cmdTxCnt = value; }
+        internal ulong nackCnt { get => _nackCnt; private set => _nackCnt = value; }
 
-        public void ResetStatistics() { _cmdRxCnt = 0; _cmdTxCnt = 0; _nackCnt = 0; }
+        internal void ResetStatistics() { _cmdRxCnt = 0; _cmdTxCnt = 0; _nackCnt = 0; }
 
         // constructor
-        public COMDevice(string pnpDeviceID, string portName, Int32 baudRate = 500000)
+        internal COMDevice(string pnpDeviceID, string portName, Int32 baudRate = 500000)
         {
+            _iDeviceId = iNewDeviceId;
+
             _serialPort.PortName = portName;
             _serialPort.BaudRate = baudRate;
 
@@ -89,6 +88,30 @@ namespace CockpitHardwareHUB_v2.Classes
             _serialPort.WriteTimeout = 100;
 
             _PNPDeviceID = pnpDeviceID.ToUpper();
+        }
+
+        public override bool Equals(object obj)
+        {
+            // If the object is the same instance, return true
+            if (ReferenceEquals(this, obj)) return true;
+
+            // If the object is not a COMDevice or is null, return false
+            var other = obj as COMDevice;
+            if (other == null) return false;
+
+            // Compare the _iDeviceId of both COMDevice instances
+            return (this._iDeviceId == other._iDeviceId);
+        }
+
+        public override int GetHashCode()
+        {
+            // Use the _iDeviceId which is unique for each COMDevice
+            return _iDeviceId;
+        }
+
+        public override string ToString()
+        {
+            return $"[{_serialPort.PortName}\\{(_DeviceName == "" ? "UNKNOWN" : _DeviceName)}]";
         }
 
         public bool Open()
@@ -134,6 +157,9 @@ namespace CockpitHardwareHUB_v2.Classes
         {
             StopPumps();
 
+            foreach (Property property in _Properties)
+                PropertyPool.RemovePropertyFromPool(this, property.iSimId);
+
             try
             {
                 _serialPort.Close();
@@ -163,58 +189,76 @@ namespace CockpitHardwareHUB_v2.Classes
         {
             try
             {
+                // remove all earlier received properties in both dictionaries (although, at this point in time, _PropertiesBySimVar will be empty)
+                _Properties.Clear();
+
                 // clean receive buffer (at least, try...)
                 _serialPort.Write("\n");
                 ClearInputBuffer();
 
                 // make sure that device is in non-registered mode
                 _serialPort.Write("RESET\n");
+
+                // TODO: Improvement in HW - after RESET we should not send acknowledge - now, let's wait 200 msec, and then clear the input buffer
+                Thread.Sleep(200);
+
                 ClearInputBuffer(); // We should not get anything back, so make sure that all is clean
 
                 // get identification
                 _serialPort.Write("IDENT\n");
                 _DeviceName = _serialPort.ReadLine();
                 _ProcessorType = _serialPort.ReadLine();
-                Logging.LogLine(LogLevel.Info, LoggingSource.DEV, $"COMDevice.GetProperties {PortName}: New Device found: IDENT = \"{_DeviceName}\" - \"{_ProcessorType}\"");
-
-                // counter for each Property
-                int iPropId = 1;
+                Logging.LogLine(LogLevel.Info, LoggingSource.DEV, $"COMDevice.GetProperties: {this} IDENT = \"{_DeviceName}\" - \"{_ProcessorType}\"");
 
                 // get properties to register
                 _serialPort.Write("REGISTER\n");
 
+                int iPropId = 1; // only for logging purposes
                 string sPropStr;
                 while ((sPropStr = _serialPort.ReadLine()) != "")
                 {
-                    Logging.LogLine(LogLevel.Trace, LoggingSource.DEV, $"COMDevice.GetProperties {PortName}: PropId: {iPropId} - PropStr: \"{sPropStr}\"");
-                    _Properties.Add(new Property(iPropId++, sPropStr));
+                    // Add each property in the property list of the COMDevice - the PropertyId is the index + 1
+                    _Properties.Add(new Property(sPropStr));
+                    Logging.LogLine(LogLevel.Debug, LoggingSource.DEV, $"COMDevice.GetProperties: {this} REGISTER {iPropId++} = \"{sPropStr}\"");
                 }
 
+                // During 'ReadLine()', exceptions can be thrown which aborts the 'GetProperties()'.
+                // Because of that, 'AddPropertyInPool()' is only called when all Properties are loaded successfully, otherwise multiple usage might occur.
+                // We use For-loop, because we need it in the call to 'AddPropertyInPool()' - be aware that the index is [iPropId - 1]
+                for (iPropId = 1; iPropId <= _Properties.Count; iPropId++)
+                {
+                    Property property = _Properties[iPropId - 1];
+                    // Add the Property to the Pool. If successfully parsed, we will get a SimId not equal to -1.
+                    property.iSimId = PropertyPool.AddPropertyInPool(this, iPropId, property.sPropStr);
+                }
+
+                // Start the TxPump and RxPump
                 StartPumps();
 
                 return true;
             }
             catch (TimeoutException ex)
             {
-                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.GetProperties {PortName}: TimeoutException {ex}");
+                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.GetProperties: {this} TimeoutException {ex}");
                 return false;
             }
             catch (Exception ex)
             {
-                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.GetProperties {PortName}: Exception {ex}");
+                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.GetProperties: {this} Exception {ex}");
                 return false;
             }
         }
 
         public void StartPumps()
         {
-            if (_bPumpsRunning)
+            // Be suspicious, and assume that the call needs to be re-entrant, hence make it threadsafe
+            // If IsStarted == 0, then make it 1, and return the previous value 0 --> execute Start
+            // If IsStarted == 1, then don't change it, and return the previous value 1 --> don't do anything, we are already started
+            if (Interlocked.CompareExchange(ref IsStarted, 1, 0) == 1)
             {
-                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.StartPumps for {PortName}: Pumps already started.");
-                return;
+                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.StartPumps: {this} Pumps already started");
+                return; // Already started
             }
-
-            Logging.LogLine(LogLevel.Info, LoggingSource.DEV, $"COMDevice.StartPumps for {PortName}.");
 
             // create the CancellationTokenSource
             _ctPumps = new();
@@ -225,18 +269,19 @@ namespace CockpitHardwareHUB_v2.Classes
             // Start Receive Pump
             _RxPump = Task.Run(() => RxPump(_ctPumps.Token), _ctPumps.Token);
 
-            _bPumpsRunning = true;
+            Logging.LogLine(LogLevel.Info, LoggingSource.DEV, $"COMDevice.StartPumps: {this} Pumps started");
         }
 
         public void StopPumps()
         {
-            if (!_bPumpsRunning)
+            // Be suspicious, and assume that the call needs to be re-entrant, hence make it threadsafe
+            // If IsStarted == 1, then make it 0, and return the previous value 1 --> execute Start
+            // If IsStarted == 0, then don't change it, and return the previous value 0 --> don't do anything, we are already started
+            if (Interlocked.CompareExchange(ref IsStarted, 0, 1) == 0)
             {
-                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.StopPumps for {PortName}: Pumps already stopped.");
-                return;
+                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.StopPumps: {this} Pumps already stopped");
+                return; // Already stopped
             }
-
-            Logging.LogLine(LogLevel.Info, LoggingSource.DEV, $"COMDevice.StopPumps for {PortName}.");
 
             // cancel the CancellationTokenSource
             _ctPumps.Cancel(false);
@@ -244,16 +289,16 @@ namespace CockpitHardwareHUB_v2.Classes
             // wait for the pumps to stop running
             if (!Task.WaitAll(new Task[] { _TxPump, _RxPump }, 600))
                 // One task seems not to have stopped in time
-                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.StopPumps for {PortName}: One of the pumps didn't stop in time.");
+                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.StopPumps: {this} One of the pumps didn't stop in time");
             else
-                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.StopPumps for {PortName}: All pumps stopped in time.");
+                Logging.LogLine(LogLevel.Debug, LoggingSource.DEV, $"COMDevice.StopPumps: {this} All pumps stopped in time");
 
             // cleanup
             _ctPumps.Dispose();
             _TxPump = null;
             _RxPump = null;
 
-            _bPumpsRunning = false;
+            Logging.LogLine(LogLevel.Info, LoggingSource.DEV, $"COMDevice.StopPumps: {this} Pumps stopped");
         }
 
         private void RxPump(CancellationToken ct)
@@ -268,7 +313,7 @@ namespace CockpitHardwareHUB_v2.Classes
                 {
                     // Only for logging purposes
                     if (!bPumpStarted)
-                        Logging.LogLine(LogLevel.Info, LoggingSource.DEV, $"COMDevice.RxPump for {PortName} started.");
+                        Logging.LogLine(LogLevel.Debug, LoggingSource.DEV, $"COMDevice.RxPump: {this} RxPump started");
                     bPumpStarted = true;
 
                     // blocking read
@@ -287,14 +332,11 @@ namespace CockpitHardwareHUB_v2.Classes
                                 _mreAck.Set();
                             else if ((sbCmd.Length >= 4) && (sbCmd[3] == '=') && int.TryParse(sbCmd.ToString().AsSpan(0, 3), out int iPropId))
                             {
-                                Logging.LogLine(LogLevel.Trace, LoggingSource.DEV, $"COMDevice.RxPump for {PortName} command {sbCmd}");
                                 // Command received with format 'NNN=...'. Check if it is a valid Property, and if it has its matching iVarId
-                                Property prop = _Properties.Find(x => x.iPropId == iPropId);
-                                if (prop != null && prop.iSimId != -1 && !ct.IsCancellationRequested)
+                                Logging.LogLine(LogLevel.Debug, LoggingSource.DEV, $"COMDevice.RxPump: {this} Command \"{sbCmd}\"");
+                                if (!ct.IsCancellationRequested)
                                 {
-                                    // Replace the iPropId with the iSimId, and send the command to the SimClient !!! Check what the lenght of a SimId is - here we take 4 characters
-                                    string sCmd = $"{prop.iSimId:D04}{sbCmd.ToString().AsSpan(3)}";
-                                    SimClient.AddCmdToTxPumpQueue = sCmd;
+                                    PropertyPool.TriggerProperty(_Properties[iPropId-1].iSimId, sbCmd.ToString().AsSpan(4).ToString());
                                     cmdRxCnt++;
                                 }
                             }
@@ -304,18 +346,18 @@ namespace CockpitHardwareHUB_v2.Classes
                 }
                 catch (OperationCanceledException)
                 {
-                    Logging.LogLine(LogLevel.Trace, LoggingSource.DEV, $"COMDevice.RxPump for {PortName} throws OperationCanceledException.");
+                    Logging.LogLine(LogLevel.Trace, LoggingSource.DEV, $"COMDevice.RxPump: {this} OperationCanceledException");
                 }
                 catch (TimeoutException)
                 {
-                    Logging.LogLine(LogLevel.Trace, LoggingSource.DEV, $"COMDevice.RxPump for {PortName} throws TimeoutException.");
+                    Logging.LogLine(LogLevel.Trace, LoggingSource.DEV, $"COMDevice.RxPump: {this} TimeoutException");
                 }
                 catch (Exception ex)
                 {
-                    Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.RxPump for {PortName} throws {ex}");
+                    Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.RxPump: {this} Exception {ex}");
                 }
             }
-            Logging.LogLine(LogLevel.Info, LoggingSource.DEV, $"COMDevice.RxPump for {PortName} stopped.");
+            Logging.LogLine(LogLevel.Info, LoggingSource.DEV, $"COMDevice.RxPump: {this} RxPump stopped");
         }
 
         private void TxPump(CancellationToken ct)
@@ -328,11 +370,12 @@ namespace CockpitHardwareHUB_v2.Classes
                 {
                     // Only for logging purposes
                     if (!bPumpStarted)
-                        Logging.LogLine(LogLevel.Info, LoggingSource.DEV, $"COMDevice.TxPump for {PortName} started.");
+                        Logging.LogLine(LogLevel.Info, LoggingSource.DEV, $"COMDevice.TxPump: {this} TxPump started");
                     bPumpStarted = true;
 
                     // blocking take
                     string sCmd = _TxPumpQueue.Take(ct);
+                    Logging.LogLine(LogLevel.Debug, LoggingSource.DEV, $"COMDevice.TxPump: {this} Command \"{sCmd}\"");
 
                     byte[] buffer = Encoding.ASCII.GetBytes($"{sCmd}\n");
 
@@ -340,7 +383,6 @@ namespace CockpitHardwareHUB_v2.Classes
 
                     while (attempts-- != 0)
                     {
-                        //_serialPort.BaseStream.Write(buffer, 0, sCmd.Length + 1);
                         _serialPort.BaseStream.Write(buffer, 0, sCmd.Length + 1);
 
                         // Reset the ManualResetEvent and wait for ACK for 50 msec
@@ -353,7 +395,7 @@ namespace CockpitHardwareHUB_v2.Classes
                         else
                         {
                             nackCnt++;
-                            Logging.LogLine(LogLevel.Trace, LoggingSource.DEV, $"COMDevice.TxPump for {PortName} : Not Ack attempt {{2 - attempts}} for \\\"{{sCmd}}\\\"\"");
+                            Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.TxPump: {this} Not Ack for attempt {{2 - attempts}} for \"{{sCmd}}\"");
                             // Send linefeed to be sure we are in sync
                             _serialPort.BaseStream.Write(LF, 0, 1);
                         }
@@ -361,18 +403,25 @@ namespace CockpitHardwareHUB_v2.Classes
                 }
                 catch (OperationCanceledException)
                 {
-                    Logging.LogLine(LogLevel.Trace, LoggingSource.DEV, $"COMDevice.TxPump for {PortName} throws OperationCanceledException.");
+                    Logging.LogLine(LogLevel.Trace, LoggingSource.DEV, $"COMDevice.TxPump: {this} OperationCanceledException");
                 }
                 catch (TimeoutException)
                 {
-                    Logging.LogLine(LogLevel.Trace, LoggingSource.DEV, $"COMDevice.TxPump for {PortName} throws TimeoutException.");
+                    Logging.LogLine(LogLevel.Trace, LoggingSource.DEV, $"COMDevice.TxPump: {this} TimeoutException");
                 }
                 catch (Exception ex)
                 {
-                    Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.TxPump for {PortName} throws {ex}");
+                    Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.TxPump: {this} Exception {ex}");
                 }
             }
-            Logging.LogLine(LogLevel.Info, LoggingSource.DEV, $"COMDevice.TxPump for {PortName} stopped.");
+            Logging.LogLine(LogLevel.Info, LoggingSource.DEV, $"COMDevice.TxPump: {this} TxPump stopped");
+        }
+
+        public void AddCmdToTxPumpQueue(int iPropId, string sData)
+        {
+            string sCmd = $"{iPropId:D03}={sData}";
+            _TxPumpQueue.Add(sCmd);
+            Logging.LogLine(LogLevel.Debug, LoggingSource.DEV, $"COMDevice.AddCmdToTxPumpQueue: {this} \"{sCmd}\""); // Is this thread safe, and does it need to be?
         }
     }
 }
