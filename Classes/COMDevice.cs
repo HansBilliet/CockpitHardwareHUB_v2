@@ -20,8 +20,7 @@ namespace CockpitHardwareHUB_v2.Classes
     internal class COMDevice
     {
         // creates unique DeviceId
-        static private int _iNewDeviceId = 1;
-        private int iNewDeviceId => Interlocked.Increment(ref _iNewDeviceId);
+        static private int _iNewDeviceId = 0;
 
         private readonly int _iDeviceId;
 
@@ -39,8 +38,11 @@ namespace CockpitHardwareHUB_v2.Classes
         private string _ProcessorType;
         internal string ProcessorType => _ProcessorType;
 
+        internal string UniqueName => $"{_iDeviceId:D02}\\{_serialPort.PortName}\\{(_DeviceName == "" ? "UNKNOWN" : _DeviceName)}";
+
         // List of property strings - Property ID = [index + 1]
         private readonly List<Property> _Properties = new();
+        internal IReadOnlyCollection<Property> Properties => _Properties;
 
         // A ConcurrentQueue that gets commands from SimClient.DataSubscriptionHandler (via SimVar.DispatchSimVar) and processed in TxPump.
         private readonly BlockingCollection<string> _TxPumpQueue = new();
@@ -57,20 +59,27 @@ namespace CockpitHardwareHUB_v2.Classes
         private readonly ManualResetEvent _mreAck = new(false);
 
         // Statistics
-        private ulong _cmdRxCnt = 0;
-        private ulong _cmdTxCnt = 0;
-        private ulong _nackCnt = 0;
-
-        internal ulong cmdRxCnt { get => _cmdRxCnt; private set => _cmdRxCnt = value; }
-        internal ulong cmdTxCnt { get => _cmdTxCnt; private set => _cmdTxCnt = value; }
-        internal ulong nackCnt { get => _nackCnt; private set => _nackCnt = value; }
-
-        internal void ResetStatistics() { _cmdRxCnt = 0; _cmdTxCnt = 0; _nackCnt = 0; }
+        private class Statistics
+        {
+            internal ulong _cmdRxCnt = 0;
+            internal ulong _cmdTxCnt = 0;
+            internal ulong _nackCnt = 0;
+        }
+        private Statistics stats = new Statistics();
+        internal ulong cmdRxCnt => Interlocked.Read(ref stats._cmdRxCnt);
+        internal ulong cmdTxCnt => Interlocked.Read(ref stats._cmdTxCnt);
+        internal ulong nackCnt => Interlocked.Read(ref stats._nackCnt);
+        internal void ResetStatistics()
+        { 
+            Interlocked.Exchange(ref stats._cmdRxCnt, 0); 
+            Interlocked.Exchange(ref stats._cmdTxCnt, 0); 
+            Interlocked.Exchange(ref stats._nackCnt, 0); 
+        }
 
         // constructor
         internal COMDevice(string pnpDeviceID, string portName, Int32 baudRate = 500000)
         {
-            _iDeviceId = iNewDeviceId;
+            _iDeviceId = Interlocked.Increment(ref _iNewDeviceId);
 
             _serialPort.PortName = portName;
             _serialPort.BaudRate = baudRate;
@@ -103,6 +112,22 @@ namespace CockpitHardwareHUB_v2.Classes
             return (this._iDeviceId == other._iDeviceId);
         }
 
+        public static bool operator ==(COMDevice left, COMDevice right)
+        {
+            if (ReferenceEquals(left, right))
+                return true;
+
+            if (left is null || right is null)
+                return false;
+
+            return left._iDeviceId == right._iDeviceId;
+        }
+
+        public static bool operator !=(COMDevice left, COMDevice right)
+        {
+            return !(left == right);
+        }
+
         public override int GetHashCode()
         {
             // Use the _iDeviceId which is unique for each COMDevice
@@ -111,10 +136,10 @@ namespace CockpitHardwareHUB_v2.Classes
 
         public override string ToString()
         {
-            return $"[{_serialPort.PortName}\\{(_DeviceName == "" ? "UNKNOWN" : _DeviceName)}]";
+            return $"{UniqueName}";
         }
 
-        public bool Open()
+        internal bool Open()
         {
             bool bSuccess = false;
             int iRetryCount = 0; // Only UnauthorizedAccessAcception will increase iRetryCount - all other attempts will exit
@@ -153,7 +178,7 @@ namespace CockpitHardwareHUB_v2.Classes
             return bSuccess;
         }
 
-        public bool Close()
+        internal bool Close()
         {
             StopPumps();
 
@@ -185,7 +210,7 @@ namespace CockpitHardwareHUB_v2.Classes
         }
 
         // Get Properties of the connected HW device
-        public bool GetProperties()
+        internal bool GetProperties()
         {
             try
             {
@@ -249,7 +274,7 @@ namespace CockpitHardwareHUB_v2.Classes
             }
         }
 
-        public void StartPumps()
+        internal void StartPumps()
         {
             // Be suspicious, and assume that the call needs to be re-entrant, hence make it threadsafe
             // If IsStarted == 0, then make it 1, and return the previous value 0 --> execute Start
@@ -272,7 +297,7 @@ namespace CockpitHardwareHUB_v2.Classes
             Logging.LogLine(LogLevel.Info, LoggingSource.DEV, $"COMDevice.StartPumps: {this} Pumps started");
         }
 
-        public void StopPumps()
+        internal void StopPumps()
         {
             // Be suspicious, and assume that the call needs to be re-entrant, hence make it threadsafe
             // If IsStarted == 1, then make it 0, and return the previous value 1 --> execute Start
@@ -337,7 +362,7 @@ namespace CockpitHardwareHUB_v2.Classes
                                 if (!ct.IsCancellationRequested)
                                 {
                                     PropertyPool.TriggerProperty(_Properties[iPropId-1].iSimId, sbCmd.ToString().AsSpan(4).ToString());
-                                    cmdRxCnt++;
+                                    stats._cmdRxCnt = Interlocked.Increment(ref stats._cmdRxCnt);
                                 }
                             }
                             sbCmd.Clear();
@@ -389,13 +414,13 @@ namespace CockpitHardwareHUB_v2.Classes
                         _mreAck.Reset();
                         if (_mreAck.WaitOne(150))
                         {
-                            cmdTxCnt++;
+                            stats._cmdTxCnt = Interlocked.Increment(ref stats._cmdTxCnt);
                             break;
                         }
                         else
                         {
-                            nackCnt++;
-                            Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.TxPump: {this} Not Ack for attempt {{2 - attempts}} for \"{{sCmd}}\"");
+                            stats._nackCnt = Interlocked.Increment(ref stats._nackCnt);
+                            Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.TxPump: {this} Not Ack for attempt {2 - attempts} for \"{sCmd}\"");
                             // Send linefeed to be sure we are in sync
                             _serialPort.BaseStream.Write(LF, 0, 1);
                         }
@@ -417,7 +442,7 @@ namespace CockpitHardwareHUB_v2.Classes
             Logging.LogLine(LogLevel.Info, LoggingSource.DEV, $"COMDevice.TxPump: {this} TxPump stopped");
         }
 
-        public void AddCmdToTxPumpQueue(int iPropId, string sData)
+        internal void AddCmdToTxPumpQueue(int iPropId, string sData)
         {
             string sCmd = $"{iPropId:D03}={sData}";
             _TxPumpQueue.Add(sCmd);

@@ -2,6 +2,7 @@
 using System.Text.RegularExpressions;
 using WASimCommander.CLI;
 using WASimCommander.CLI.Enums;
+using static CockpitHardwareHUB_v2.Classes.PropertyPool;
 
 namespace CockpitHardwareHUB_v2.Classes
 {
@@ -43,59 +44,102 @@ namespace CockpitHardwareHUB_v2.Classes
 
     internal class SimVar
     {
+        private readonly UIUpdateVariable_Handler UIUpdateVariable;
+
         // creates unique VarId
-        static private int _iNewVarId = 1;
-        private int iNewVarId => Interlocked.Increment(ref _iNewVarId);
+        static private int _iNewVarId = 0;
+        private readonly int _iVarId;
+        internal int iVarId => _iVarId;
 
         // Example: "FLOAT64_RW_A:AUTOPILOT ALTITUDE LOCK VAR:3, feet"
-        public string sPropStr { get; init; } = "";
-        public int iVarId { get; private set; } = -1;
+        internal string sPropStr { get; init; } = "";
 
-        public uint ExternalId { get; set; } = 0;
-        public bool bIsRegistered { get; set; } = false;
+        internal string sVarId => $"{iVarId:D04}";
+
+        internal uint ExternalId { get; set; } = 0;
+        internal bool bIsRegistered { get; set; } = false;
 
         // This is only the variable name "AUTOPILOT ALTITUDE LOCK VAR:3"
         private string _sVarName;
-        public string sVarName => _sVarName;
+        internal string sVarName => _sVarName;
 
         private byte _bIndex;
-        public byte bIndex => _bIndex;
+        internal byte bIndex => _bIndex;
 
         // True if we deal with a Custom Event such as A32NX.FCU_SPD_INC (has a '.')
         private bool _bCustomEvent = false;
-        public bool bCustomEvent => _bCustomEvent;
+        internal bool bCustomEvent => _bCustomEvent;
 
         // Is true in case of R or RW
         private bool _bRead = false;
-        public bool bRead => _bRead;
+        internal bool bRead => _bRead;
 
         // Is true in case of W or RW or VOID
         private bool _bWrite = false;
-        public bool bWrite => _bWrite;
+        internal bool bWrite => _bWrite;
+
+        internal string sRW => $"{(_bRead ? "R" : "")}{(_bWrite ? "W" : "")}";
 
         // ValType can be one of "INT32", "INT64", "FLOAT32", "FLOAT64", "STRING8", "STRING32", "STRING64", "STRING128", "STRING256" or "STRING260"
         private SIMCONNECT_DATATYPE _scValType;
         private uint _ValType;
-        public SIMCONNECT_DATATYPE scValType => _scValType;
-        public uint ValType => _ValType;
+        internal SIMCONNECT_DATATYPE scValType => _scValType;
+        internal uint ValType => _ValType;
 
         // VarType can be one of 'A', 'L', 'X' or 'K'
         private char _cVarType;
-        public char cVarType => _cVarType;
+        internal char cVarType => _cVarType;
 
         // Any unit that is appended. Example "feet"
         private string _sUnit;
-        public string sUnit => _sUnit;
+        internal string sUnit => _sUnit;
 
         private PR _ParseResult;
-        public PR ParseResult => _ParseResult;
+        internal PR ParseResult => _ParseResult;
 
-        public string sValue { get; set; } = "";
+        internal string sValue { get; set; } = "";
 
         // keep list of COMDevices that are interested in listening to a Read variable - value is translated iPropId
         private readonly Dictionary<COMDevice, int> _Listeners = new();
 
         private int _iUsageCnt = 0;
+        internal int iUsageCnt => _iUsageCnt;
+        internal string sUsageCnt => $"{_iUsageCnt}";
+
+        public override bool Equals(object obj)
+        {
+            // If the object is the same instance, return true
+            if (ReferenceEquals(this, obj)) return true;
+
+            // If the object is not a SimVar or is null, return false
+            var other = obj as SimVar;
+            if (other == null) return false;
+
+            // Compare the iVarId of both SimVar instances
+            return (this.iVarId == other.iVarId);
+        }
+
+        public static bool operator ==(SimVar left, SimVar right)
+        {
+            if (ReferenceEquals(left, right))
+                return true;
+
+            if (left is null || right is null)
+                return false;
+
+            return left.iVarId == right.iVarId;
+        }
+
+        public static bool operator !=(SimVar left, SimVar right)
+        {
+            return !(left == right);
+        }
+
+        public override int GetHashCode()
+        {
+            // Use the iVarId which is unique for each SimVar
+            return iVarId;
+        }
 
         public override string ToString()
         {
@@ -108,7 +152,8 @@ namespace CockpitHardwareHUB_v2.Classes
             {
                 try
                 {
-                    _iUsageCnt++; // increase the usage of the simVar
+                    // Increase the usage of the simVar
+                    _iUsageCnt++;
                     if (_bRead)
                         _Listeners.Add(device, iPropId);
                 }
@@ -118,6 +163,8 @@ namespace CockpitHardwareHUB_v2.Classes
                     Logging.LogLine(LogLevel.Error, LoggingSource.PRP, $"SimVar.IncUsageCnt: Listener {device} already exists for sPropStr {sPropStr}.");
                 }
             }
+            // Update the Usage Cnt and Value in the UI
+            UIUpdateVariable?.Invoke(UpdateVariable.Usage, this);
         }
 
         internal int DecUsageCnt(COMDevice device)
@@ -130,12 +177,18 @@ namespace CockpitHardwareHUB_v2.Classes
                     return -1;
                 }
 
+                // Decrease the usage of the SimVar
                 _iUsageCnt--;
+
                 if (_bRead && !_Listeners.Remove(device))
                     // This should never happen. If it does, it means that we try to remove a listener that isn't registered.
                     Logging.LogLine(LogLevel.Error, LoggingSource.PRP, $"SimVar.DecUsageCnt: Listener {device} doesn't exist for sPropStr {sPropStr}.");
-                return _iUsageCnt;
             }
+
+            // Update the Usage Cnt in the UI
+            UIUpdateVariable?.Invoke(UpdateVariable.Usage, this);
+
+            return _iUsageCnt;
         }
 
         //private char cValTypeLX
@@ -181,36 +234,42 @@ namespace CockpitHardwareHUB_v2.Classes
         // Dictionaries to keep SimVars by name and by id
         private static readonly ConcurrentDictionary<string, SimVar> _SimVarsByName = new();
         private static readonly ConcurrentDictionary<int, SimVar> _SimVarsById = new();
+        internal static ConcurrentDictionary<int, SimVar> SimVarsById => _SimVarsById;
         // Object to make writing and reading to both dictionaries atomic
-        private static readonly object VarLock = new();
+        internal static readonly object VarLock = new();
 
-        internal static bool AddSimVar(SimVar simVar)
+        internal bool AddSimVar()
         {
             lock (VarLock)
             {
-                if (_SimVarsByName.ContainsKey(simVar.sPropStr) || _SimVarsById.ContainsKey(simVar.iVarId))
+                if (_SimVarsByName.ContainsKey(sPropStr) || _SimVarsById.ContainsKey(iVarId))
                 {
-                    Logging.LogLine(LogLevel.Error, LoggingSource.PRP, $"PropertyPool.AddSimVar: simVar {simVar.sPropStr} with iVarId {simVar.iVarId} already exists");
+                    Logging.LogLine(LogLevel.Error, LoggingSource.PRP, $"PropertyPool.AddSimVar: simVar {sPropStr} with iVarId {iVarId} already exists");
                     return false;
                 }
 
                 // Add to concurrent dictionary using using sPropStr as key
-                _SimVarsByName.TryAdd(simVar.sPropStr, simVar);
+                _SimVarsByName.TryAdd(sPropStr, this);
                 // Add to concurrent dictionary using using iVarId as key
-                _SimVarsById.TryAdd(simVar.iVarId, simVar);
+                _SimVarsById.TryAdd(iVarId, this);
+                // Add the SimVar in the UI
+                UIUpdateVariable?.Invoke(UpdateVariable.Add, this);
+
 
                 return true;
             }
         }
 
-        internal static void RemoveSimVar(SimVar simVar)
+        internal void RemoveSimVar()
         {
             lock (VarLock)
             {
                 // Remove from concurrent dictionary using using sPropStr as key
-                _SimVarsByName.TryRemove(simVar.sPropStr, out SimVar _); // if key not found, just ignore and proceed
+                _SimVarsByName.TryRemove(sPropStr, out SimVar _); // if key not found, just ignore and proceed
                 // Remove from concurrent dictionary using using iVarId as key
-                _SimVarsById.TryRemove(simVar.iVarId, out SimVar _);  // if key not found, just ignore and proceed
+                _SimVarsById.TryRemove(iVarId, out SimVar _);  // if key not found, just ignore and proceed
+                // Remove the SimVar in the UI
+                UIUpdateVariable?.Invoke(UpdateVariable.Remove, this);
             }
         }
 
@@ -228,11 +287,12 @@ namespace CockpitHardwareHUB_v2.Classes
             return simVar; // If not found, result will be default(SimVar), which is null
         }
 
-        internal SimVar(string sPropName)
+        internal SimVar(string sPropName, UIUpdateVariable_Handler UIUpdateVariable)
         {
             // Keep the original property name for comparison reasons
             // Example: FLOAT64_RW_A:AUTOPILOT ALTITUDE LOCK VAR:3,feet
             this.sPropStr = sPropName;
+            this.UIUpdateVariable = UIUpdateVariable;
 
             if (new Regex(@"^VOID_[ALKX]:.+$", RegexOptions.IgnoreCase).IsMatch(sPropName))
             {
@@ -358,7 +418,7 @@ namespace CockpitHardwareHUB_v2.Classes
                 return;
             }
 
-            iVarId = iNewVarId;
+            _iVarId = Interlocked.Increment(ref _iNewVarId); ;
             _ParseResult = PR.Ok;
         }
 
@@ -430,6 +490,8 @@ namespace CockpitHardwareHUB_v2.Classes
                 foreach (var listener in _Listeners)
                     listener.Key?.AddCmdToTxPumpQueue(listener.Value, sValue);
             }
+            // Update the value in the UI
+            UIUpdateVariable?.Invoke(UpdateVariable.Value, this);
         }
     }
 }

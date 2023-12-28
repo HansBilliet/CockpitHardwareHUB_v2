@@ -1,5 +1,4 @@
 ﻿using Microsoft.Win32;
-using System.Collections.Concurrent;
 using WASimCommander.CLI.Enums;
 
 
@@ -14,45 +13,10 @@ namespace CockpitHardwareHUB_v2.Classes
         PRP
     }
 
-    public struct LogData
-    {
-        private DateTime _dtTimeStamp;
-        private static DateTime _PreviousTimeStamp = default;
-        private int _Delta;
-        private LogLevel _LogLevel; // re-use of same LogLevel enum as defined in WASimCommander
-        private LoggingSource _LoggingSource;
-        private string _sLogLine;
-
-        public string sTimeStamp { get { return $"{_dtTimeStamp.ToString("HH:mm:ss:fff")}[{sDelta}]"; } }
-        public string sLogLevel {  get { return _LogLevel.ToString(); } }
-        public string sLoggingSource { get { return _LoggingSource.ToString(); } }
-        public string sLogLine { get { return _sLogLine; } }
-        private string sDelta => _Delta < 0 ? $"{_Delta:D03}" : $"{_Delta:D04}";
-
-        public LogData(LogLevel logLevel, LoggingSource loggingSource, string sLoggingMsg, UInt64 timestamp = 0)
-        {
-            _LogLevel = logLevel;
-            _LoggingSource = loggingSource;
-            _sLogLine = sLoggingMsg;
-            if (timestamp == 0)
-                _dtTimeStamp = DateTime.Now;
-            else
-                _dtTimeStamp = DateTimeOffset.FromUnixTimeMilliseconds((long)timestamp).LocalDateTime;
-            if (_PreviousTimeStamp == default)
-                _Delta = 0;
-            else
-            {
-                double d = (_dtTimeStamp - _PreviousTimeStamp).TotalMilliseconds;
-                _Delta = (int)Math.Max(Math.Min(d, 9999), -999);
-            }
-            _PreviousTimeStamp = _dtTimeStamp;
-        }
-    }
-
     internal static class Logging
     {
-        private static ConcurrentQueue<LogData> _LogData = new();
-        public static ConcurrentQueue<LogData> LogData { get { return _LogData; } }
+        internal delegate void UIUpdateLogging_Handler(LogLevel logLevel, LoggingSource loggingSource, string sLoggingMsg, UInt64 timestamp = 0);
+        internal static event UIUpdateLogging_Handler UIUpdateLogging;
 
         private static LogLevel _SetLogLevel = LogLevel.Info;
         internal static string sLogLevel { get => _SetLogLevel.ToString(); set => Enum.TryParse(value, out _SetLogLevel); }
@@ -61,9 +25,10 @@ namespace CockpitHardwareHUB_v2.Classes
         internal static void LogLine(LogLevel logLevel, LoggingSource loggingSource, string sLoggingMsg, UInt64 timestamp = 0)
         {
             if (logLevel <= _SetLogLevel)
-                _LogData.Enqueue(new LogData(logLevel, loggingSource, sLoggingMsg, timestamp));
+                UIUpdateLogging?.Invoke(logLevel, loggingSource, sLoggingMsg, timestamp);
         }
     }
+
     internal static class FileLogger
     {
         internal static string sFileName { get => _bIsOpen ? _sFileName : "No log file active"; }
@@ -118,9 +83,7 @@ namespace CockpitHardwareHUB_v2.Classes
         internal static void FlushFile()
         {
             if (_bIsOpen)
-            {
                 LogFile.Flush();
-            }
         }
 
         internal static void LogLine(string sLogLine)

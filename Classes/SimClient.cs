@@ -7,11 +7,14 @@ namespace CockpitHardwareHUB_v2.Classes
 {
     internal static class SimClient
     {
+        internal delegate void UpdateConnectionStatus_Handler(bool bConnected);
+        internal static event UpdateConnectionStatus_Handler UIUpdateConnectionStatus;
+
+        //private static MainForm _MainForm;
+
         private static readonly WASimClient _WASimClient = new(1965);
         public static bool IsConnected { get { return _WASimClient.isConnected(); } }
         private static int IsStarted = 0;
-
-        private static Action<bool> _ConnectionStatus = null;
 
         public static void SetLogLevel(LogLevel logLevel)
         {
@@ -106,9 +109,9 @@ namespace CockpitHardwareHUB_v2.Classes
             simVar.DispatchSimVar();
         }
 
-        public static void Init(Action<bool> ConnectionStatus)
+        public static void Init() // MainForm mainForm)
         {
-            _ConnectionStatus = ConnectionStatus;
+            //_MainForm = mainForm;
 
             // Set all LogLevels in _WASimClient
             SetLogLevel(Logging.SetLogLevel);
@@ -122,7 +125,7 @@ namespace CockpitHardwareHUB_v2.Classes
             Logging.LogLine(LogLevel.Info, LoggingSource.APP, "SimClient.Init: SimClient Initialized");
         }
 
-        public static void Connect()
+        internal static void Connect()
         {
             HR hr;
 
@@ -164,7 +167,7 @@ namespace CockpitHardwareHUB_v2.Classes
             return;
         }
 
-        public static async Task Disconnect()
+        internal static async Task Disconnect()
         {
             await Stop();
 
@@ -183,7 +186,7 @@ namespace CockpitHardwareHUB_v2.Classes
             if (Interlocked.CompareExchange(ref IsStarted, 1, 0) == 1)
                 return; // Already started
 
-            _ConnectionStatus?.Invoke(true);
+            UIUpdateConnectionStatus?.Invoke(true);
 
             DeviceServer.Start();
         }
@@ -196,12 +199,12 @@ namespace CockpitHardwareHUB_v2.Classes
             if (Interlocked.CompareExchange(ref IsStarted, 0, 1) == 0)
                 return; // Already stopped
 
-            _ConnectionStatus?.Invoke(false);
+            UIUpdateConnectionStatus?.Invoke(false);
 
             await DeviceServer.Stop();
         }
 
-        public static bool RegisterSimVar(SimVar simVar)
+        internal static bool RegisterSimVar(SimVar simVar)
         {
             if (!IsConnected || simVar.bIsRegistered)
                 return false;
@@ -304,7 +307,7 @@ namespace CockpitHardwareHUB_v2.Classes
             return true;
         }
 
-        public static void UnregisterSimVar(SimVar simVar)
+        internal static void UnregisterSimVar(SimVar simVar)
         {
             if (!IsConnected || !simVar.bIsRegistered)
             {
@@ -339,6 +342,11 @@ namespace CockpitHardwareHUB_v2.Classes
                 case 'K':
                     if (simVar.bCustomEvent)
                     {
+                        HR hr = _WASimClient.removeCustomEvent((uint)simVar.ExternalId);
+                        if (hr != HR.OK)
+                            Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.UnregisterSimVar: {simVar.sVarName} failed with {hr}");
+                        else
+                            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.UnregisterSimVar: {simVar.sVarName} with Id's {simVar.iVarId}/{simVar.ExternalId} success");
                     }
                     break;
 
@@ -361,7 +369,7 @@ namespace CockpitHardwareHUB_v2.Classes
             simVar.bIsRegistered = false;
         }
 
-        public static void TriggerSimVar(SimVar simVar, string sData)
+        internal static void TriggerSimVar(SimVar simVar, string sData)
         {
             if (!IsConnected || IsStarted == 0 || !simVar.bIsRegistered || !simVar.bWrite)
                 return;

@@ -5,6 +5,11 @@ namespace CockpitHardwareHUB_v2.Classes
 {
     internal static class DeviceServer
     {
+        internal delegate void UIAddDevice_Handler(COMDevice device);
+        internal static event UIAddDevice_Handler UIAddDevice;
+        internal delegate void UIRemoveDevice_Handler(COMDevice device);
+        internal static event UIRemoveDevice_Handler UIRemoveDevice;
+
         private static int IsStarted = 0;
 
         private static readonly SerialPortManager _SerialPortManager = new();
@@ -46,8 +51,10 @@ namespace CockpitHardwareHUB_v2.Classes
             Task.Run(() => RemoveDevice(device));
         }
 
-        public static void Init()
+        public static void Init() // MainForm mainForm)
         {
+            //_MainForm = mainForm;
+
             // Setup event handlers for scanning serial ports
             _SerialPortManager.OnPortFoundEvent += OnPortFoundEvent;
             _SerialPortManager.OnPortAddedEvent += OnPortAddedEvent;
@@ -135,6 +142,7 @@ namespace CockpitHardwareHUB_v2.Classes
                 {
                     lock(_devices)
                         _devices.Add(device); // keep list of all successfully connected devices
+                    UIAddDevice?.Invoke(device);
                     Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"DeviceServer.AddDevice: {device} successfully added");
                     return;
                 }
@@ -150,9 +158,17 @@ namespace CockpitHardwareHUB_v2.Classes
         {
             lock(_devices)
                 _devices.Remove(device);
+            UIRemoveDevice?.Invoke(device);
 
             device.Close();
             Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"DeviceServer.RemoveDevice: {device} successfully removed");
+        }
+
+        internal static void ResetStatistics()
+        {
+            lock (_devices)
+                foreach (COMDevice device in _devices)
+                    device.ResetStatistics();
         }
     }
 }

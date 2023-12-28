@@ -20,7 +20,7 @@
 
 namespace CockpitHardwareHUB_v2.Classes
 {
-    public class SerialPortEventArgs : EventArgs
+    internal class SerialPortEventArgs : EventArgs
     {
         public SerialPortEventArgs(string portName, int vendorID, int productID, string pnpDeviceID)
         {
@@ -35,7 +35,7 @@ namespace CockpitHardwareHUB_v2.Classes
         public string PNPDeviceID;
     }
 
-    public class SerialPortManager
+    internal class SerialPortManager
     {
         public event EventHandler<SerialPortEventArgs> OnPortFoundEvent;
         public event EventHandler<SerialPortEventArgs> OnPortAddedEvent;
@@ -58,7 +58,7 @@ namespace CockpitHardwareHUB_v2.Classes
             AddRemoveUSBHandler();
         }
 
-        public void scanPorts(bool watchForChanges = true)
+        internal void scanPorts(bool watchForChanges = true)
         {
             try
             {
@@ -85,7 +85,7 @@ namespace CockpitHardwareHUB_v2.Classes
             }
         }
 
-        public void stop()
+        internal void stop()
         {
             _watchingAddedObject.Stop();
             _watchingRemovedObject.Stop();

@@ -4,8 +4,9 @@ namespace CockpitHardwareHUB_v2.Classes
 {
     internal static class PropertyPool
     {
+        internal delegate void UIUpdateVariable_Handler(UpdateVariable uv, SimVar simVar);
+        internal static event UIUpdateVariable_Handler UIUpdateVariable;
 
-        //public static int AddPropertyInPool(string pnpDeviceID, string sPropStr, string portName)
         public static int AddPropertyInPool(COMDevice device, int iPropId, string sPropStr)
         {
             // Check if variable already exists
@@ -13,16 +14,16 @@ namespace CockpitHardwareHUB_v2.Classes
             if (simVar != null)
             {
                 // If simVar exists, increase its usage and return the iVarId
-                //simVar.IncUsageCnt(device.PNPDeviceID, iPropId);
                 simVar.IncUsageCnt(device, iPropId);
 
                 // Send value immediately to device
                 device.AddCmdToTxPumpQueue(iPropId, simVar.sValue); // Pumps aren't running yet, so this will only be queued
+
                 return simVar.iVarId;
             }
 
             // If variable doesn't exist yet, create a new variable
-            simVar = new SimVar(sPropStr);
+            simVar = new SimVar(sPropStr, UIUpdateVariable);
             if (simVar.ParseResult != PR.Ok)
             {
                 // Parsing of sPropStr failed
@@ -35,7 +36,7 @@ namespace CockpitHardwareHUB_v2.Classes
             simVar.IncUsageCnt(device, iPropId);
 
             // Add the variable in the pool
-            SimVar.AddSimVar(simVar);
+            simVar.AddSimVar();
 
             // Register the simVar
             SimClient.RegisterSimVar(simVar);
@@ -63,7 +64,7 @@ namespace CockpitHardwareHUB_v2.Classes
             SimClient.UnregisterSimVar(simVar);
 
             // Remove the variable from the list
-            SimVar.RemoveSimVar(simVar);
+            simVar.RemoveSimVar();
         }
 
         public static void TriggerProperty(int iSimId, string sData)
