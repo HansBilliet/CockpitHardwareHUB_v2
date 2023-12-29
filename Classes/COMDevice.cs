@@ -27,7 +27,11 @@ namespace CockpitHardwareHUB_v2.Classes
         private readonly byte[] LF = { (byte)'\n' };
 
         private readonly SerialPort _serialPort = new();
-        internal string PortName => _serialPort.PortName;
+
+        private readonly bool _bVirtualDevice = false;
+
+        private readonly string _PortName;
+        internal string PortName => _PortName;
 
         private readonly string _PNPDeviceID;
         internal string PNPDeviceID => _PNPDeviceID;
@@ -38,7 +42,7 @@ namespace CockpitHardwareHUB_v2.Classes
         private string _ProcessorType;
         internal string ProcessorType => _ProcessorType;
 
-        internal string UniqueName => $"{_iDeviceId:D02}\\{_serialPort.PortName}\\{(_DeviceName == "" ? "UNKNOWN" : _DeviceName)}";
+        internal string UniqueName => $"{_iDeviceId:D02}\\{PortName}\\{(_DeviceName == "" ? "UNKNOWN" : _DeviceName)}";
 
         // List of property strings - Property ID = [index + 1]
         private readonly List<Property> _Properties = new();
@@ -81,20 +85,32 @@ namespace CockpitHardwareHUB_v2.Classes
         {
             _iDeviceId = Interlocked.Increment(ref _iNewDeviceId);
 
-            _serialPort.PortName = portName;
-            _serialPort.BaudRate = baudRate;
+            _bVirtualDevice = (portName == "VIRTUAL");
+            _PortName = portName;
 
-            _serialPort.Handshake = Handshake.None;
+            if (!_bVirtualDevice)
+            {
+                _serialPort.PortName = portName;
+                _serialPort.BaudRate = baudRate;
 
-            // format 8-N-1
-            _serialPort.DataBits = 8;
-            _serialPort.Parity = Parity.None;
-            _serialPort.StopBits = StopBits.One;
+                _serialPort.Handshake = Handshake.None;
 
-            _serialPort.NewLine = "\n";
+                // format 8-N-1
+                _serialPort.DataBits = 8;
+                _serialPort.Parity = Parity.None;
+                _serialPort.StopBits = StopBits.One;
 
-            _serialPort.ReadTimeout = 300;
-            _serialPort.WriteTimeout = 100;
+                _serialPort.NewLine = "\n";
+
+                _serialPort.ReadTimeout = 300;
+                _serialPort.WriteTimeout = 100;
+            }
+            else
+            {
+                _DeviceName = "VIRTUAL";
+                _ProcessorType = "N/A";
+                //_PNPDeviceID = "N/A";
+            }
 
             _PNPDeviceID = pnpDeviceID.ToUpper();
         }
@@ -141,6 +157,9 @@ namespace CockpitHardwareHUB_v2.Classes
 
         internal bool Open()
         {
+            if (_bVirtualDevice)
+                return true;
+
             bool bSuccess = false;
             int iRetryCount = 0; // Only UnauthorizedAccessAcception will increase iRetryCount - all other attempts will exit
 
@@ -180,10 +199,14 @@ namespace CockpitHardwareHUB_v2.Classes
 
         internal bool Close()
         {
-            StopPumps();
+            if (!_bVirtualDevice)
+                StopPumps();
 
             foreach (Property property in _Properties)
                 PropertyPool.RemovePropertyFromPool(this, property.iSimId);
+
+            if (_bVirtualDevice)
+                return true;
 
             try
             {
@@ -199,6 +222,12 @@ namespace CockpitHardwareHUB_v2.Classes
 
         private void ClearInputBuffer()
         {
+            if (_bVirtualDevice)
+            {
+                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.ClearInputBuffer {PortName}: Operation not allowed for Virtual Device");
+                return;
+            }
+
             while (true)
             {
                 int readCount = _serialPort.BytesToRead;
@@ -212,6 +241,12 @@ namespace CockpitHardwareHUB_v2.Classes
         // Get Properties of the connected HW device
         internal bool GetProperties()
         {
+            if (_bVirtualDevice)
+            {
+                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.GetProperties {PortName}: Operation not allowed for Virtual Device");
+                return false;
+            }
+
             try
             {
                 // remove all earlier received properties in both dictionaries (although, at this point in time, _PropertiesBySimVar will be empty)
@@ -274,8 +309,27 @@ namespace CockpitHardwareHUB_v2.Classes
             }
         }
 
+        internal void AddProperty(string sPropStr)
+        {
+            int iPropId = _Properties.Count;
+            Property property = new Property(sPropStr);
+            property.iSimId = PropertyPool.AddPropertyInPool(this, iPropId, property.sPropStr);
+            if (property.iSimId == -1)
+            {
+                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.AddProperty: {this} Property not added to device");
+                return;
+            }
+            _Properties.Add(property);
+        }
+
         internal void StartPumps()
         {
+            if (_bVirtualDevice)
+            {
+                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.StartPumps {PortName}: Operation not allowed for Virtual Device");
+                return;
+            }
+
             // Be suspicious, and assume that the call needs to be re-entrant, hence make it threadsafe
             // If IsStarted == 0, then make it 1, and return the previous value 0 --> execute Start
             // If IsStarted == 1, then don't change it, and return the previous value 1 --> don't do anything, we are already started
@@ -299,6 +353,12 @@ namespace CockpitHardwareHUB_v2.Classes
 
         internal void StopPumps()
         {
+            if (_bVirtualDevice)
+            {
+                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.StopPumps {PortName}: Operation not allowed for Virtual Device");
+                return;
+            }
+
             // Be suspicious, and assume that the call needs to be re-entrant, hence make it threadsafe
             // If IsStarted == 1, then make it 0, and return the previous value 1 --> execute Start
             // If IsStarted == 0, then don't change it, and return the previous value 0 --> don't do anything, we are already started
@@ -331,6 +391,12 @@ namespace CockpitHardwareHUB_v2.Classes
             bool bPumpStarted = false;
             var buffer = new byte[1024];
             StringBuilder sbCmd = new ("", 256); // More efficient than string when adding characters
+
+            if (_bVirtualDevice)
+            {
+                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.RxPump {PortName}: Operation not allowed for Virtual Device");
+                return;
+            }
 
             while (_serialPort.IsOpen && !ct.IsCancellationRequested)
             {
@@ -388,6 +454,12 @@ namespace CockpitHardwareHUB_v2.Classes
         private void TxPump(CancellationToken ct)
         {
             bool bPumpStarted = false;
+
+            if (_bVirtualDevice)
+            {
+                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.TxPump {PortName}: Operation not allowed for Virtual Device");
+                return;
+            }
 
             while (_serialPort.IsOpen && !ct.IsCancellationRequested)
             {

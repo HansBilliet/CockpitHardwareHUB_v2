@@ -62,8 +62,6 @@ namespace CockpitHardwareHUB_v2.Classes
         // Event handler to process data value subscription updates.
         private static void DataSubscriptionHandler(DataRequestRecord dr)
         {
-            bool bConversionSucceeded;
-
             SimVar simVar = SimVar.GetSimVarById((int)dr.requestId);
             if (simVar == null)
             {
@@ -71,41 +69,9 @@ namespace CockpitHardwareHUB_v2.Classes
                 return;
             }
 
-            switch (simVar.ValType)
-            {
-                case ValueTypes.DATA_TYPE_INT8:
-                    if (bConversionSucceeded = dr.tryConvert(out byte i8Val))
-                        simVar.sValue = i8Val.ToString();
-                    break;
-                case ValueTypes.DATA_TYPE_INT32:
-                    if (bConversionSucceeded = dr.tryConvert(out int i32Val))
-                        simVar.sValue = i32Val.ToString();
-                    break;
-                case ValueTypes.DATA_TYPE_INT64:
-                    if (bConversionSucceeded = dr.tryConvert(out long i64Val))
-                        simVar.sValue = i64Val.ToString();
-                    break;
-                case ValueTypes.DATA_TYPE_FLOAT:
-                    if (bConversionSucceeded = dr.tryConvert(out float fVal))
-                        simVar.sValue = fVal.ToString("0.000", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
-                    break;
-                case ValueTypes.DATA_TYPE_DOUBLE:
-                    if (bConversionSucceeded = dr.tryConvert(out double dVal))
-                        simVar.sValue = dVal.ToString("0.000", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
-                    break;
-                default:
-                    if (bConversionSucceeded = dr.tryConvert(out string sVal))
-                        simVar.sValue = sVal;
-                    break;
-            }
-
-            if (!bConversionSucceeded)
-            {
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.DataSubscriptionHandler: {dr.requestId} \"{dr.nameOrCode}\" - Conversion failed");
+            if (!simVar.ConvertDataForSimVar(dr))
                 return;
-            }
 
-            Logging.LogLine(LogLevel.Debug, LoggingSource.APP, $"SimClient.DataSubscriptionHandler: {dr.requestId} \"{dr.nameOrCode}\" with value \"{simVar.sValue}\"");
             simVar.DispatchSimVar();
         }
 
@@ -374,6 +340,8 @@ namespace CockpitHardwareHUB_v2.Classes
             if (!IsConnected || IsStarted == 0 || !simVar.bIsRegistered || !simVar.bWrite)
                 return;
 
+            Logging.LogLine(LogLevel.Debug, LoggingSource.APP, $"SimClient.TriggerSimVar: iSimId = {simVar.iVarId} = {sData}");
+
             switch (simVar.cVarType)
             {
                 case 'A':
@@ -394,6 +362,17 @@ namespace CockpitHardwareHUB_v2.Classes
                     _WASimClient.transmitEvent((uint)simVar.iVarId);
                     break;
             }
+        }
+
+        internal static bool ExecuteCalculatorCode(string sCode, out double d, out string s)
+        {
+            HR hr = _WASimClient.executeCalculatorCode(sCode, CalcResultType.String, out d, out s);
+            if (hr != HR.OK)
+                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.ExecuteCalculatorCode: \"{sCode}\" failed with {hr}");
+            else
+                Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.ExecuteCalculatorCode: \"{sCode}\" returns double {d} and string \"{s}\"");
+
+            return hr == HR.OK;
         }
     }
 }

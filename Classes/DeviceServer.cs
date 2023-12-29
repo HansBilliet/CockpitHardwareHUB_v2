@@ -16,7 +16,7 @@ namespace CockpitHardwareHUB_v2.Classes
 
         private static readonly List<COMDevice> _devices = new();
 
-        private static COMDevice FindDeviceBasedOnPNPDeviceID(string pnpDeviceID)
+        public static COMDevice FindDeviceBasedOnPNPDeviceID(string pnpDeviceID)
         {
             lock(_devices)
                 return _devices.FirstOrDefault(device => device.PNPDeviceID == pnpDeviceID);
@@ -42,13 +42,7 @@ namespace CockpitHardwareHUB_v2.Classes
         private static void OnPortRemovedEvent(object sender, SerialPortEventArgs spea)
         {
             Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"DeviceServer.OnPortRemovedEvent: {spea.PortName}\\{spea.PNPDeviceID} removed");
-            COMDevice device = FindDeviceBasedOnPNPDeviceID(spea.PNPDeviceID);
-            if (device == null)
-            {
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.OnPortRemovedEvent: {spea.PortName}\\{spea.PNPDeviceID} not found in _devices");
-                return;
-            }
-            Task.Run(() => RemoveDevice(device));
+            Task.Run(() => RemoveDevice(spea.PNPDeviceID));
         }
 
         public static void Init() // MainForm mainForm)
@@ -106,62 +100,87 @@ namespace CockpitHardwareHUB_v2.Classes
             Logging.LogLine(LogLevel.Info, LoggingSource.APP, "DeviceServer.Stop: DeviceServer Stopped");
         }
 
-        private static void AddDevice(string PNPDeviceID, string DeviceID)
+        internal static void AddDevice(string PNPDeviceID, string DeviceID)
         {
-            // Do some parsing on PNPDeviceID to be sure we have correct type of device - be very restrictive, we can still adapt in the future
-            string[] parts = PNPDeviceID.Split(new string[] { "\\" }, StringSplitOptions.None);
-            if (parts.Length != 3)
+            if (DeviceID != "VIRTUAL")
             {
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.AddDevice: PNPDeviceID \"{PNPDeviceID}\" is not correct");
-                return;
-            }
-            else if (parts[0] != "USB")
-            {
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.AddDevice: PNPDeviceID \"{PNPDeviceID}\" is not USB");
-                return;
-            }
-            else if (parts[2] == "")
-            {
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.AddDevice: PNPDeviceID \"{PNPDeviceID}\" has no serial number");
-                return;
-            }
-
-            COMDevice device = new(PNPDeviceID, DeviceID); // default baudrate is 500000
-
-            if (!device.Open())
-            {
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.AddDevice: {device} unable to open");
-                return; // Unable to open COMDevice
-            }
-
-            // Try a maximum of 5 times to connect with COMDevice
-            for (int i = 0; i < 5; i++)
-            {
-                Logging.LogLine(LogLevel.Debug, LoggingSource.APP, $"DeviceServer.AddDevice: {device} GetProperties try {i + 1}");
-                if (device.GetProperties())
+                // If we have a real PNPDeviceID, do some parsing on PNPDeviceID to be sure we have correct type of device - be very restrictive, we can still adapt in the future
+                string[] parts = PNPDeviceID.Split(new string[] { "\\" }, StringSplitOptions.None);
+                if (parts.Length != 3)
                 {
-                    lock(_devices)
-                        _devices.Add(device); // keep list of all successfully connected devices
-                    UIAddDevice?.Invoke(device);
-                    Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"DeviceServer.AddDevice: {device} successfully added");
+                    Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.AddDevice: PNPDeviceID \"{PNPDeviceID}\" is not correct");
                     return;
                 }
-                Thread.Sleep(1000); // just let it cool down, and try again later
+                else if (parts[0] != "USB")
+                {
+                    Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.AddDevice: PNPDeviceID \"{PNPDeviceID}\" is not USB");
+                    return;
+                }
+                else if (parts[2] == "")
+                {
+                    Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.AddDevice: PNPDeviceID \"{PNPDeviceID}\" has no serial number");
+                    return;
+                }
             }
 
-            // if we fail after 5 times, close the device
-            Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.AddDevice: {device} GetProperties failed after 5 times");
-            device.Close();
+            COMDevice device = new(PNPDeviceID, DeviceID);
+
+            if (DeviceID != "VIRTUAL")
+            {
+                if (!device.Open())
+                {
+                    Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.AddDevice: {device} unable to open");
+                    return; // Unable to open COMDevice
+                }
+
+                // Try a maximum of 5 times to connect with COMDevice
+                for (int i = 0; i < 5; i++)
+                {
+                    Logging.LogLine(LogLevel.Debug, LoggingSource.APP, $"DeviceServer.AddDevice: {device} GetProperties try {i + 1}");
+                    if (device.GetProperties())
+                    {
+                        lock (_devices)
+                            _devices.Add(device); // keep list of all successfully connected devices
+                        UIAddDevice?.Invoke(device);
+                        Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"DeviceServer.AddDevice: {device} successfully added");
+                        return;
+                    }
+                    Thread.Sleep(1000); // just let it cool down, and try again later
+                }
+
+                // if we fail after 5 times, close the device
+                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.AddDevice: {device} GetProperties failed after 5 times");
+                device.Close();
+            }
+            else
+            {
+                lock (_devices)
+                    _devices.Add(device); // keep list of all successfully connected devices
+                UIAddDevice?.Invoke(device);
+                Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"DeviceServer.AddDevice: {device} successfully added");
+                return;
+            }
         }
 
-        private static void RemoveDevice(COMDevice device)
+        internal static void RemoveDevice(COMDevice device)
         {
-            lock(_devices)
+            lock (_devices)
                 _devices.Remove(device);
             UIRemoveDevice?.Invoke(device);
 
             device.Close();
             Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"DeviceServer.RemoveDevice: {device} successfully removed");
+        }
+
+        internal static void RemoveDevice(string PNPDeviceID)
+        {
+            COMDevice device = FindDeviceBasedOnPNPDeviceID(PNPDeviceID);
+            if (device == null)
+            {
+                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.RemoveDevice: {PNPDeviceID} not found in _devices");
+                return;
+            }
+            RemoveDevice(device);
         }
 
         internal static void ResetStatistics()

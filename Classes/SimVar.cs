@@ -1,7 +1,9 @@
 ﻿using System.Collections.Concurrent;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using WASimCommander.CLI;
 using WASimCommander.CLI.Enums;
+using WASimCommander.CLI.Structs;
 using static CockpitHardwareHUB_v2.Classes.PropertyPool;
 
 namespace CockpitHardwareHUB_v2.Classes
@@ -255,7 +257,6 @@ namespace CockpitHardwareHUB_v2.Classes
                 // Add the SimVar in the UI
                 UIUpdateVariable?.Invoke(UpdateVariable.Add, this);
 
-
                 return true;
             }
         }
@@ -483,15 +484,97 @@ namespace CockpitHardwareHUB_v2.Classes
             }
         }
 
-        public void DispatchSimVar()
+        internal void DispatchSimVar()
         {
             lock (_Listeners)
             {
                 foreach (var listener in _Listeners)
-                    listener.Key?.AddCmdToTxPumpQueue(listener.Value, sValue);
+                {
+                    if (listener.Key?.PNPDeviceID != "VIRTUAL")
+                        listener.Key?.AddCmdToTxPumpQueue(listener.Value, sValue);
+                }
             }
             // Update the value in the UI
             UIUpdateVariable?.Invoke(UpdateVariable.Value, this);
+        }
+
+        internal bool ConvertDataForSimVar(DataRequestRecord dr)
+        {
+            bool bConversionSucceeded;
+
+            switch (ValType)
+            {
+                case ValueTypes.DATA_TYPE_INT8:
+                    if (bConversionSucceeded = dr.tryConvert(out byte i8Val))
+                        sValue = i8Val.ToString();
+                    break;
+                case ValueTypes.DATA_TYPE_INT32:
+                    if (bConversionSucceeded = dr.tryConvert(out int i32Val))
+                        sValue = i32Val.ToString();
+                    break;
+                case ValueTypes.DATA_TYPE_INT64:
+                    if (bConversionSucceeded = dr.tryConvert(out long i64Val))
+                        sValue = i64Val.ToString();
+                    break;
+                case ValueTypes.DATA_TYPE_FLOAT:
+                    if (bConversionSucceeded = dr.tryConvert(out float fVal))
+                        sValue = fVal.ToString("0.000", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
+                    break;
+                case ValueTypes.DATA_TYPE_DOUBLE:
+                    if (bConversionSucceeded = dr.tryConvert(out double dVal))
+                        sValue = dVal.ToString("0.000", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
+                    break;
+                default:
+                    if (bConversionSucceeded = dr.tryConvert(out string sVal))
+                        sValue = sVal;
+                    break;
+            }
+
+            if (bConversionSucceeded)
+                Logging.LogLine(LogLevel.Debug, LoggingSource.APP, $"SimVar.ConvertDataForSimVar: {dr.requestId} \"{dr.nameOrCode}\" has value \"{sValue}\"");
+            else
+                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimVar.ConvertDataForSimVar: {dr.requestId} \"{dr.nameOrCode}\" - Conversion failed");
+
+            return bConversionSucceeded;
+        }
+
+        internal bool CheckDataForSimVar(string sData)
+        {
+            bool bConversionSucceeded;
+
+            switch (ValType)
+            {
+                case ValueTypes.DATA_TYPE_INT8:
+                    if (bConversionSucceeded = byte.TryParse(sData, out byte _))
+                        sValue = sData;
+                    break;
+                case ValueTypes.DATA_TYPE_INT32:
+                    if (bConversionSucceeded = int.TryParse(sData, out int _))
+                        sValue = sData;
+                    break;
+                case ValueTypes.DATA_TYPE_INT64:
+                    if (bConversionSucceeded = long.TryParse(sData, out long _))
+                        sValue = sData;
+                    break;
+                case ValueTypes.DATA_TYPE_FLOAT:
+                    if (bConversionSucceeded = float.TryParse(sData, NumberStyles.Any, CultureInfo.GetCultureInfo("en-US"), out float fVal))
+                        sValue = fVal.ToString("0.000", CultureInfo.GetCultureInfo("en-US"));
+                        break;
+                case ValueTypes.DATA_TYPE_DOUBLE:
+                    if (bConversionSucceeded = double.TryParse(sData, NumberStyles.Any, CultureInfo.GetCultureInfo("en-US"), out double dVal))
+                        sValue = dVal.ToString("0.000", CultureInfo.GetCultureInfo("en-US"));
+                    break;
+                default:
+                    bConversionSucceeded = true;
+                    break;
+            }
+
+            if (bConversionSucceeded)
+                Logging.LogLine(LogLevel.Debug, LoggingSource.APP, $"SimVar.CheckDataForSimVar: {sData} is a valid {ValType}");
+            else
+                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimVar.CheckDataForSimVar: Value {sData} is not a valid {ValType}");
+
+            return bConversionSucceeded;
         }
     }
 }

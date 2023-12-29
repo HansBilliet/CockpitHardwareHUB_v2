@@ -29,7 +29,7 @@
         private void InitializeComponent()
         {
             grpConnect = new GroupBox();
-            btnConnect = new Button();
+            btnConnectMSFS = new Button();
             grpLogging = new GroupBox();
             lvLogging = new ListView();
             txtLogFileName = new TextBox();
@@ -62,16 +62,31 @@
             lblRW = new Label();
             txtVariablesFilter = new TextBox();
             lblVariablesFilter = new Label();
+            grpVirtualDevice = new GroupBox();
+            btnSendToDevices = new Button();
+            btnSendToMSFS = new Button();
+            btnAddProperty = new Button();
+            btnConnectVD = new Button();
+            txtSimVar = new TextBox();
+            grpExecCalcode = new GroupBox();
+            txtExecCalcCodeString = new TextBox();
+            lblExecCalcCodeString = new Label();
+            txtExecCalcCodeNumber = new TextBox();
+            lblExecCalcCodeNumber = new Label();
+            btnSendExecCalcCode = new Button();
+            txtExecCalcCode = new TextBox();
             grpConnect.SuspendLayout();
             grpLogging.SuspendLayout();
             grpDevices.SuspendLayout();
             grpVariables.SuspendLayout();
+            grpVirtualDevice.SuspendLayout();
+            grpExecCalcode.SuspendLayout();
             SuspendLayout();
             // 
             // grpConnect
             // 
-            grpConnect.Controls.Add(btnConnect);
-            grpConnect.Location = new Point(13, 13);
+            grpConnect.Controls.Add(btnConnectMSFS);
+            grpConnect.Location = new Point(13, 10);
             grpConnect.Margin = new Padding(4, 3, 4, 3);
             grpConnect.Name = "grpConnect";
             grpConnect.Padding = new Padding(4, 3, 4, 3);
@@ -80,16 +95,16 @@
             grpConnect.TabStop = false;
             grpConnect.Text = "MSFS2020 : DISCONNECTED";
             // 
-            // btnConnect
+            // btnConnectMSFS
             // 
-            btnConnect.Location = new Point(6, 18);
-            btnConnect.Margin = new Padding(4, 3, 4, 3);
-            btnConnect.Name = "btnConnect";
-            btnConnect.Size = new Size(272, 23);
-            btnConnect.TabIndex = 0;
-            btnConnect.Text = "Connect";
-            btnConnect.UseVisualStyleBackColor = true;
-            btnConnect.Click += btnConnect_Click;
+            btnConnectMSFS.Location = new Point(6, 18);
+            btnConnectMSFS.Margin = new Padding(4, 3, 4, 3);
+            btnConnectMSFS.Name = "btnConnectMSFS";
+            btnConnectMSFS.Size = new Size(272, 23);
+            btnConnectMSFS.TabIndex = 0;
+            btnConnectMSFS.Text = "Connect";
+            btnConnectMSFS.UseVisualStyleBackColor = true;
+            btnConnectMSFS.Click += btnConnect_Click;
             // 
             // grpLogging
             // 
@@ -101,7 +116,7 @@
             grpLogging.Controls.Add(lblLoggingLevel);
             grpLogging.Controls.Add(txtLoggingFilter);
             grpLogging.Controls.Add(lblLoggingFilter);
-            grpLogging.Location = new Point(306, 342);
+            grpLogging.Location = new Point(305, 408);
             grpLogging.Margin = new Padding(4, 3, 4, 3);
             grpLogging.Name = "grpLogging";
             grpLogging.Padding = new Padding(4, 3, 4, 3);
@@ -113,9 +128,9 @@
             // lvLogging
             // 
             lvLogging.GridLines = true;
-            lvLogging.Location = new Point(10, 74);
+            lvLogging.Location = new Point(7, 72);
             lvLogging.Name = "lvLogging";
-            lvLogging.Size = new Size(704, 165);
+            lvLogging.Size = new Size(708, 165);
             lvLogging.TabIndex = 4;
             lvLogging.UseCompatibleStateImageBehavior = false;
             lvLogging.View = View.Details;
@@ -126,13 +141,13 @@
             txtLogFileName.Margin = new Padding(4, 3, 4, 3);
             txtLogFileName.Name = "txtLogFileName";
             txtLogFileName.ReadOnly = true;
-            txtLogFileName.Size = new Size(618, 23);
+            txtLogFileName.Size = new Size(620, 23);
             txtLogFileName.TabIndex = 8;
             // 
             // cbLogToFile
             // 
             cbLogToFile.AutoSize = true;
-            cbLogToFile.Location = new Point(8, 47);
+            cbLogToFile.Location = new Point(6, 47);
             cbLogToFile.Margin = new Padding(4, 3, 4, 3);
             cbLogToFile.Name = "cbLogToFile";
             cbLogToFile.Size = new Size(79, 19);
@@ -143,7 +158,7 @@
             // 
             // btnLoggingClear
             // 
-            btnLoggingClear.Location = new Point(637, 16);
+            btnLoggingClear.Location = new Point(639, 17);
             btnLoggingClear.Margin = new Padding(4, 3, 4, 3);
             btnLoggingClear.Name = "btnLoggingClear";
             btnLoggingClear.Size = new Size(75, 23);
@@ -157,7 +172,7 @@
             cbLogLevel.DropDownStyle = ComboBoxStyle.DropDownList;
             cbLogLevel.FormattingEnabled = true;
             cbLogLevel.Items.AddRange(new object[] { "None", "Critical", "Error", "Warning", "Info", "Debug", "Trace" });
-            cbLogLevel.Location = new Point(295, 16);
+            cbLogLevel.Location = new Point(292, 17);
             cbLogLevel.Margin = new Padding(4, 3, 4, 3);
             cbLogLevel.Name = "cbLogLevel";
             cbLogLevel.Size = new Size(73, 23);
@@ -167,7 +182,7 @@
             // lblLoggingLevel
             // 
             lblLoggingLevel.AutoSize = true;
-            lblLoggingLevel.Location = new Point(230, 19);
+            lblLoggingLevel.Location = new Point(226, 20);
             lblLoggingLevel.Margin = new Padding(4, 0, 4, 0);
             lblLoggingLevel.Name = "lblLoggingLevel";
             lblLoggingLevel.Size = new Size(57, 15);
@@ -176,7 +191,7 @@
             // 
             // txtLoggingFilter
             // 
-            txtLoggingFilter.Location = new Point(52, 16);
+            txtLoggingFilter.Location = new Point(48, 17);
             txtLoggingFilter.Margin = new Padding(4, 3, 4, 3);
             txtLoggingFilter.Name = "txtLoggingFilter";
             txtLoggingFilter.Size = new Size(170, 23);
@@ -186,7 +201,7 @@
             // lblLoggingFilter
             // 
             lblLoggingFilter.AutoSize = true;
-            lblLoggingFilter.Location = new Point(8, 19);
+            lblLoggingFilter.Location = new Point(6, 20);
             lblLoggingFilter.Margin = new Padding(4, 0, 4, 0);
             lblLoggingFilter.Name = "lblLoggingFilter";
             lblLoggingFilter.Size = new Size(36, 15);
@@ -215,7 +230,7 @@
             grpDevices.Margin = new Padding(4, 3, 4, 3);
             grpDevices.Name = "grpDevices";
             grpDevices.Padding = new Padding(4, 3, 4, 3);
-            grpDevices.Size = new Size(285, 520);
+            grpDevices.Size = new Size(285, 586);
             grpDevices.TabIndex = 2;
             grpDevices.TabStop = false;
             grpDevices.Text = "USB Devices";
@@ -234,13 +249,13 @@
             // txtProperties
             // 
             txtProperties.BackColor = SystemColors.Window;
-            txtProperties.Location = new Point(6, 219);
+            txtProperties.Location = new Point(6, 222);
             txtProperties.Margin = new Padding(4, 3, 4, 3);
             txtProperties.Multiline = true;
             txtProperties.Name = "txtProperties";
             txtProperties.ReadOnly = true;
             txtProperties.ScrollBars = ScrollBars.Both;
-            txtProperties.Size = new Size(272, 294);
+            txtProperties.Size = new Size(272, 355);
             txtProperties.TabIndex = 14;
             txtProperties.WordWrap = false;
             // 
@@ -392,9 +407,9 @@
             grpVariables.Controls.Add(lblRW);
             grpVariables.Controls.Add(txtVariablesFilter);
             grpVariables.Controls.Add(lblVariablesFilter);
-            grpVariables.Location = new Point(308, 119);
+            grpVariables.Location = new Point(305, 185);
             grpVariables.Name = "grpVariables";
-            grpVariables.Size = new Size(718, 217);
+            grpVariables.Size = new Size(720, 217);
             grpVariables.TabIndex = 3;
             grpVariables.TabStop = false;
             grpVariables.Text = "Variables";
@@ -402,9 +417,9 @@
             // lvVariables
             // 
             lvVariables.GridLines = true;
-            lvVariables.Location = new Point(8, 45);
+            lvVariables.Location = new Point(6, 45);
             lvVariables.Name = "lvVariables";
-            lvVariables.Size = new Size(704, 166);
+            lvVariables.Size = new Size(708, 166);
             lvVariables.TabIndex = 4;
             lvVariables.UseCompatibleStateImageBehavior = false;
             lvVariables.View = View.Details;
@@ -447,19 +462,148 @@
             lblVariablesFilter.TabIndex = 0;
             lblVariablesFilter.Text = "Filter:";
             // 
+            // grpVirtualDevice
+            // 
+            grpVirtualDevice.Controls.Add(btnSendToDevices);
+            grpVirtualDevice.Controls.Add(btnSendToMSFS);
+            grpVirtualDevice.Controls.Add(btnAddProperty);
+            grpVirtualDevice.Controls.Add(btnConnectVD);
+            grpVirtualDevice.Controls.Add(txtSimVar);
+            grpVirtualDevice.Location = new Point(305, 97);
+            grpVirtualDevice.Name = "grpVirtualDevice";
+            grpVirtualDevice.Size = new Size(720, 82);
+            grpVirtualDevice.TabIndex = 4;
+            grpVirtualDevice.TabStop = false;
+            grpVirtualDevice.Text = "Virtual Device";
+            // 
+            // btnSendToDevices
+            // 
+            btnSendToDevices.Location = new Point(639, 51);
+            btnSendToDevices.Name = "btnSendToDevices";
+            btnSendToDevices.Size = new Size(75, 23);
+            btnSendToDevices.TabIndex = 5;
+            btnSendToDevices.Text = ">Devices";
+            btnSendToDevices.UseVisualStyleBackColor = true;
+            btnSendToDevices.Click += btnSendToDevices_Click;
+            // 
+            // btnSendToMSFS
+            // 
+            btnSendToMSFS.Location = new Point(558, 51);
+            btnSendToMSFS.Name = "btnSendToMSFS";
+            btnSendToMSFS.Size = new Size(75, 23);
+            btnSendToMSFS.TabIndex = 4;
+            btnSendToMSFS.Text = ">MSFS";
+            btnSendToMSFS.UseVisualStyleBackColor = true;
+            btnSendToMSFS.Click += btnSendToMSFS_Click;
+            // 
+            // btnAddProperty
+            // 
+            btnAddProperty.Location = new Point(162, 51);
+            btnAddProperty.Name = "btnAddProperty";
+            btnAddProperty.Size = new Size(110, 23);
+            btnAddProperty.TabIndex = 2;
+            btnAddProperty.Text = "Add Property";
+            btnAddProperty.UseVisualStyleBackColor = true;
+            btnAddProperty.Click += btnAddProperty_Click;
+            // 
+            // btnConnectVD
+            // 
+            btnConnectVD.Location = new Point(6, 51);
+            btnConnectVD.Name = "btnConnectVD";
+            btnConnectVD.Size = new Size(150, 23);
+            btnConnectVD.TabIndex = 1;
+            btnConnectVD.Text = "Connect Virtual Device";
+            btnConnectVD.UseVisualStyleBackColor = true;
+            btnConnectVD.Click += btnConnectVD_Click;
+            // 
+            // txtSimVar
+            // 
+            txtSimVar.Location = new Point(6, 22);
+            txtSimVar.Name = "txtSimVar";
+            txtSimVar.Size = new Size(708, 23);
+            txtSimVar.TabIndex = 0;
+            // 
+            // grpExecCalcode
+            // 
+            grpExecCalcode.Controls.Add(txtExecCalcCodeString);
+            grpExecCalcode.Controls.Add(lblExecCalcCodeString);
+            grpExecCalcode.Controls.Add(txtExecCalcCodeNumber);
+            grpExecCalcode.Controls.Add(lblExecCalcCodeNumber);
+            grpExecCalcode.Controls.Add(btnSendExecCalcCode);
+            grpExecCalcode.Controls.Add(txtExecCalcCode);
+            grpExecCalcode.Location = new Point(305, 10);
+            grpExecCalcode.Name = "grpExecCalcode";
+            grpExecCalcode.Size = new Size(720, 81);
+            grpExecCalcode.TabIndex = 5;
+            grpExecCalcode.TabStop = false;
+            grpExecCalcode.Text = "execute_calculator_code";
+            // 
+            // txtExecCalcCodeString
+            // 
+            txtExecCalcCodeString.Location = new Point(219, 49);
+            txtExecCalcCodeString.Name = "txtExecCalcCodeString";
+            txtExecCalcCodeString.ReadOnly = true;
+            txtExecCalcCodeString.Size = new Size(495, 23);
+            txtExecCalcCodeString.TabIndex = 7;
+            // 
+            // lblExecCalcCodeString
+            // 
+            lblExecCalcCodeString.AutoSize = true;
+            lblExecCalcCodeString.Location = new Point(172, 52);
+            lblExecCalcCodeString.Name = "lblExecCalcCodeString";
+            lblExecCalcCodeString.Size = new Size(41, 15);
+            lblExecCalcCodeString.TabIndex = 6;
+            lblExecCalcCodeString.Text = "String:";
+            // 
+            // txtExecCalcCodeNumber
+            // 
+            txtExecCalcCodeNumber.Location = new Point(66, 49);
+            txtExecCalcCodeNumber.Name = "txtExecCalcCodeNumber";
+            txtExecCalcCodeNumber.ReadOnly = true;
+            txtExecCalcCodeNumber.Size = new Size(100, 23);
+            txtExecCalcCodeNumber.TabIndex = 3;
+            // 
+            // lblExecCalcCodeNumber
+            // 
+            lblExecCalcCodeNumber.AutoSize = true;
+            lblExecCalcCodeNumber.Location = new Point(6, 52);
+            lblExecCalcCodeNumber.Name = "lblExecCalcCodeNumber";
+            lblExecCalcCodeNumber.Size = new Size(54, 15);
+            lblExecCalcCodeNumber.TabIndex = 2;
+            lblExecCalcCodeNumber.Text = "Number:";
+            // 
+            // btnSendExecCalcCode
+            // 
+            btnSendExecCalcCode.Location = new Point(664, 21);
+            btnSendExecCalcCode.Name = "btnSendExecCalcCode";
+            btnSendExecCalcCode.Size = new Size(50, 23);
+            btnSendExecCalcCode.TabIndex = 1;
+            btnSendExecCalcCode.Text = "Send";
+            btnSendExecCalcCode.UseVisualStyleBackColor = true;
+            btnSendExecCalcCode.Click += btnSendExecCalcCode_Click;
+            // 
+            // txtExecCalcCode
+            // 
+            txtExecCalcCode.Location = new Point(6, 22);
+            txtExecCalcCode.Name = "txtExecCalcCode";
+            txtExecCalcCode.Size = new Size(652, 23);
+            txtExecCalcCode.TabIndex = 0;
+            // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1036, 593);
+            ClientSize = new Size(1039, 666);
+            Controls.Add(grpExecCalcode);
+            Controls.Add(grpVirtualDevice);
             Controls.Add(grpVariables);
             Controls.Add(grpDevices);
             Controls.Add(grpLogging);
             Controls.Add(grpConnect);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             Margin = new Padding(4, 3, 4, 3);
-            MaximumSize = new Size(1052, 632);
-            MinimumSize = new Size(1048, 632);
+            MaximumSize = new Size(1055, 705);
+            MinimumSize = new Size(1055, 705);
             Name = "MainForm";
             StartPosition = FormStartPosition.Manual;
             Text = "Cockpit Hardware HUB v2 - ";
@@ -472,13 +616,17 @@
             grpDevices.PerformLayout();
             grpVariables.ResumeLayout(false);
             grpVariables.PerformLayout();
+            grpVirtualDevice.ResumeLayout(false);
+            grpVirtualDevice.PerformLayout();
+            grpExecCalcode.ResumeLayout(false);
+            grpExecCalcode.PerformLayout();
             ResumeLayout(false);
         }
 
         #endregion
 
         private GroupBox grpConnect;
-        private Button btnConnect;
+        private Button btnConnectMSFS;
         private GroupBox grpLogging;
         private TextBox txtLoggingFilter;
         private Label lblLoggingFilter;
@@ -511,5 +659,18 @@
         private Label lblRW;
         private ListView lvVariables;
         private ListView lvLogging;
+        private GroupBox grpVirtualDevice;
+        private TextBox txtSimVar;
+        private Button btnConnectVD;
+        private Button btnAddProperty;
+        private Button btnSendToDevices;
+        private Button btnSendToMSFS;
+        private GroupBox grpExecCalcode;
+        private Button btnSendExecCalcCode;
+        private TextBox txtExecCalcCode;
+        private TextBox txtExecCalcCodeNumber;
+        private Label lblExecCalcCodeNumber;
+        private TextBox txtExecCalcCodeString;
+        private Label lblExecCalcCodeString;
     }
 }

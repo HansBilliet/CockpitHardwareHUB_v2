@@ -1,5 +1,6 @@
 using CockpitHardwareHUB_v2.Classes;
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using WASimCommander.CLI.Enums;
 using Timer = System.Windows.Forms.Timer;
@@ -18,6 +19,9 @@ namespace CockpitHardwareHUB_v2
 
         // Logfile setting
         private bool _bLogToFile = false;
+
+        // Connection status Virtual Device
+        private bool _bVirtualDeviceConnected = false;
 
         // Timer for statistics updates
         private Timer _Timer;
@@ -47,6 +51,8 @@ namespace CockpitHardwareHUB_v2
 
             DeviceServer.Init();
             SimClient.Init();
+
+            UpdateVirtualDeviceUIElements();
 
             cbLogLevel.Text = Logging.sLogLevel;
             cbLogToFile.Checked = _bLogToFile;
@@ -114,6 +120,37 @@ namespace CockpitHardwareHUB_v2
             _ListViewControllerLogging.LogLine(logLevel, loggingSource, sLoggingMsg, timestamp);
         }
 
+        private void UpdateVirtualDeviceUIElements()
+        {
+            if (SimClient.IsConnected)
+            {
+                txtExecCalcCode.Enabled = true;
+                btnSendExecCalcCode.Enabled = true;
+
+                txtSimVar.Enabled = _bVirtualDeviceConnected;
+                if (!_bVirtualDeviceConnected)
+                    txtSimVar.Text = "";
+                btnConnectVD.Enabled = true;
+                btnConnectVD.Text = $"{(_bVirtualDeviceConnected ? "Disconnect" : "Connect")}  Virtual Device";
+                btnAddProperty.Enabled = _bVirtualDeviceConnected;
+                btnSendToDevices.Enabled = _bVirtualDeviceConnected;
+                btnSendToMSFS.Enabled = _bVirtualDeviceConnected;
+            }
+            else
+            {
+                txtExecCalcCode.Enabled = false;
+                btnSendExecCalcCode.Enabled = false;
+
+                txtSimVar.Text = "";
+                txtSimVar.Enabled = false;
+                btnConnectVD.Text = "Connect Virtual Device";
+                btnConnectVD.Enabled = false;
+                btnAddProperty.Enabled = false;
+                btnSendToDevices.Enabled = false;
+                btnSendToMSFS.Enabled = false;
+            }
+        }
+
         internal void UIOnUpdateConnectStatus(bool bIsConnected)
         {
             if (InvokeRequired)
@@ -122,8 +159,13 @@ namespace CockpitHardwareHUB_v2
                 return;
             }
 
-            btnConnect.Text = (bIsConnected) ? "Disconnect" : "Connect";
+            if (!bIsConnected)
+                _bVirtualDeviceConnected = false;
+
+            btnConnectMSFS.Text = (bIsConnected) ? "Disconnect" : "Connect";
             grpConnect.Text = $"MSFS2020 : {(bIsConnected ? "CONNECTED" : "DISCONNECTED")}";
+
+            UpdateVirtualDeviceUIElements();
         }
 
         internal void UIOnAddDevice(COMDevice device)
@@ -156,7 +198,7 @@ namespace CockpitHardwareHUB_v2
             UI_UpdateUSBDevices();
         }
 
-        private void UI_UpdateUSBDevices()
+        private void UI_UpdateUSBDevices(bool bForceUpdatePropertyList = false)
         {
             if (cbDevices.Items.Count == 0 && _CurrentSelectedDevice != "")
             {
@@ -171,7 +213,7 @@ namespace CockpitHardwareHUB_v2
 
             COMDevice device = (COMDevice)cbDevices.SelectedItem;
 
-            if (_CurrentSelectedDevice != device.ToString())
+            if (_CurrentSelectedDevice != device.ToString() || bForceUpdatePropertyList)
             {
                 lock (device)
                 {
@@ -298,6 +340,80 @@ namespace CockpitHardwareHUB_v2
             txtLogFileName.Text = FileLogger.sFileName;
 
             _bLogToFile = cbLogToFile.Checked;
+        }
+
+        private void btnConnectVD_Click(object sender, EventArgs e)
+        {
+            if (!_bVirtualDeviceConnected)
+            {
+                DeviceServer.AddDevice("VIRTUAL", "VIRTUAL");
+                _bVirtualDeviceConnected = true;
+            }
+            else
+            {
+                DeviceServer.RemoveDevice("VIRTUAL");
+                _bVirtualDeviceConnected = false;
+            }
+            UpdateVirtualDeviceUIElements();
+        }
+
+        private void btnAddProperty_Click(object sender, EventArgs e)
+        {
+            if (txtSimVar.Text == "")
+                return;
+
+            COMDevice device = DeviceServer.FindDeviceBasedOnPNPDeviceID("VIRTUAL");
+            device?.AddProperty(txtSimVar.Text);
+            UI_UpdateUSBDevices(true);
+        }
+
+        private void btnSendToMSFS_Click(object sender, EventArgs e)
+        {
+            if (txtSimVar.Text == "")
+                return;
+
+            // Split the SimVar input by '='
+            string[] parts = txtSimVar.Text.Split(new char[] { '=' }, 2);
+
+            if (!int.TryParse(parts[0], out int iSimId))
+                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"MainForm.btnSendToMSFS_Click: {parts[0]} is not a number");
+
+            PropertyPool.TriggerProperty(iSimId, parts.Length > 1 ? parts[1] : "");
+        }
+
+        private void btnSendToDevices_Click(object sender, EventArgs e)
+        {
+            if (txtSimVar.Text == "")
+                return;
+
+            // Split the SimVar input by '='
+            string[] parts = txtSimVar.Text.Split(new char[] { '=' }, 2);
+
+            if (!int.TryParse(parts[0], out int iSimId))
+                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"MainForm.btnSendToDevices_Click: {parts[0]} is not a number");
+
+            SimVar simVar = SimVar.GetSimVarById(iSimId);
+
+            if (parts.Length > 1 && !simVar.CheckDataForSimVar(parts[1]))
+                return;
+
+            simVar.DispatchSimVar();
+        }
+
+        private void btnSendExecCalcCode_Click(object sender, EventArgs e)
+        {
+            if (txtExecCalcCode.Text == "")
+                return;
+
+            if (!SimClient.ExecuteCalculatorCode(txtExecCalcCode.Text, out double d, out string s))
+                return;
+
+            txtExecCalcCodeString.Text = s;
+
+            if (double.TryParse(s, NumberStyles.Any, CultureInfo.GetCultureInfo("en-US"), out double dVal))
+                txtExecCalcCodeNumber.Text = dVal.ToString("0.000", CultureInfo.GetCultureInfo("en-US"));
+            else
+                txtExecCalcCodeNumber.Text = "";
         }
     }
 
