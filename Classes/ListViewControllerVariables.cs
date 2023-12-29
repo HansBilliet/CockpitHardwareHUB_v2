@@ -37,7 +37,7 @@ namespace CockpitHardwareHUB_v2.Classes
                 _iVarId = simVar.iVarId;
                 _iUsageCnt = simVar.iUsageCnt;
                 _sRW = simVar.sRW;
-                _sVarName = simVar.sVarName;
+                _sVarName = simVar.sPropStr;
                 _sValue = simVar.sValue;
             }
             internal ListViewItem listViewItem => new ListViewItem(new[] {
