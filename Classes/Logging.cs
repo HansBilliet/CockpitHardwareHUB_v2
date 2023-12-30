@@ -22,10 +22,10 @@ namespace CockpitHardwareHUB_v2.Classes
         internal static string sLogLevel { get => _SetLogLevel.ToString(); set => Enum.TryParse(value, out _SetLogLevel); }
         internal static LogLevel SetLogLevel { get => _SetLogLevel; set => _SetLogLevel = value; }    
 
-        internal static void LogLine(LogLevel logLevel, LoggingSource loggingSource, string sLoggingMsg, UInt64 timestamp = 0)
+        internal static void Log(LogLevel logLevel, LoggingSource loggingSource, Func<string> logline,  UInt64 timestamp = 0)
         {
             if (logLevel <= _SetLogLevel)
-                UIUpdateLogging?.Invoke(logLevel, loggingSource, sLoggingMsg, timestamp);
+                UIUpdateLogging?.Invoke(logLevel, loggingSource, logline(), timestamp);
         }
     }
 

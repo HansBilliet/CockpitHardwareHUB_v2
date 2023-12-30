@@ -27,21 +27,21 @@ namespace CockpitHardwareHUB_v2.Classes
         // This is an event handler that is called when USB devices are already connected
         private static void OnPortFoundEvent(object sender, SerialPortEventArgs spea)
         {
-            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"DeviceServer.OnPortFoundEvent: {spea.PortName}\\{spea.PNPDeviceID} found");
+            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"DeviceServer.OnPortFoundEvent: {spea.PortName}\\{spea.PNPDeviceID} found");
             Task.Run(() => AddDevice(spea.PNPDeviceID, spea.PortName));
         }
 
         // This is an event handler that is called when USB devices are added
         private static void OnPortAddedEvent(object sender, SerialPortEventArgs spea)
         {
-            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"DeviceServer.OnPortAddedEvent: {spea.PortName}\\{spea.PNPDeviceID} added");
+            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"DeviceServer.OnPortAddedEvent: {spea.PortName}\\{spea.PNPDeviceID} added");
             Task.Run(() => AddDevice(spea.PNPDeviceID, spea.PortName));
         }
 
         // This is an event handler that is called when USB devices are removed
         private static void OnPortRemovedEvent(object sender, SerialPortEventArgs spea)
         {
-            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"DeviceServer.OnPortRemovedEvent: {spea.PortName}\\{spea.PNPDeviceID} removed");
+            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"DeviceServer.OnPortRemovedEvent: {spea.PortName}\\{spea.PNPDeviceID} removed");
             Task.Run(() => RemoveDevice(spea.PNPDeviceID));
         }
 
@@ -54,7 +54,7 @@ namespace CockpitHardwareHUB_v2.Classes
             _SerialPortManager.OnPortAddedEvent += OnPortAddedEvent;
             _SerialPortManager.OnPortRemovedEvent += OnPortRemovedEvent;
 
-            Logging.LogLine(LogLevel.Info, LoggingSource.APP, "DeviceServer.Init: DeviceServer Initialized");
+            Logging.Log(LogLevel.Info, LoggingSource.APP, () => "DeviceServer.Init: DeviceServer Initialized");
         }
 
         public static void Start()
@@ -70,7 +70,7 @@ namespace CockpitHardwareHUB_v2.Classes
             // - new connected USB devices will be "added"
             _SerialPortManager.scanPorts(true);
 
-            Logging.LogLine(LogLevel.Info, LoggingSource.APP, "DeviceServer.Start: DeviceServer Started");
+            Logging.Log(LogLevel.Info, LoggingSource.APP, () => "DeviceServer.Start: DeviceServer Started");
         }
 
         public static async Task Stop()
@@ -97,7 +97,7 @@ namespace CockpitHardwareHUB_v2.Classes
             // Asynchronously wait for all tasks to complete
             await Task.WhenAll(removalTasks);
 
-            Logging.LogLine(LogLevel.Info, LoggingSource.APP, "DeviceServer.Stop: DeviceServer Stopped");
+            Logging.Log(LogLevel.Info, LoggingSource.APP, () => "DeviceServer.Stop: DeviceServer Stopped");
         }
 
         internal static void AddDevice(string PNPDeviceID, string DeviceID)
@@ -108,17 +108,17 @@ namespace CockpitHardwareHUB_v2.Classes
                 string[] parts = PNPDeviceID.Split(new string[] { "\\" }, StringSplitOptions.None);
                 if (parts.Length != 3)
                 {
-                    Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.AddDevice: PNPDeviceID \"{PNPDeviceID}\" is not correct");
+                    Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"DeviceServer.AddDevice: PNPDeviceID \"{PNPDeviceID}\" is not correct");
                     return;
                 }
                 else if (parts[0] != "USB")
                 {
-                    Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.AddDevice: PNPDeviceID \"{PNPDeviceID}\" is not USB");
+                    Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"DeviceServer.AddDevice: PNPDeviceID \"{PNPDeviceID}\" is not USB");
                     return;
                 }
                 else if (parts[2] == "")
                 {
-                    Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.AddDevice: PNPDeviceID \"{PNPDeviceID}\" has no serial number");
+                    Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"DeviceServer.AddDevice: PNPDeviceID \"{PNPDeviceID}\" has no serial number");
                     return;
                 }
             }
@@ -129,27 +129,27 @@ namespace CockpitHardwareHUB_v2.Classes
             {
                 if (!device.Open())
                 {
-                    Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.AddDevice: {device} unable to open");
+                    Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"DeviceServer.AddDevice: {device} unable to open");
                     return; // Unable to open COMDevice
                 }
 
                 // Try a maximum of 5 times to connect with COMDevice
                 for (int i = 0; i < 5; i++)
                 {
-                    Logging.LogLine(LogLevel.Debug, LoggingSource.APP, $"DeviceServer.AddDevice: {device} GetProperties try {i + 1}");
+                    Logging.Log(LogLevel.Debug, LoggingSource.APP, () => $"DeviceServer.AddDevice: {device} GetProperties try {i + 1}");
                     if (device.GetProperties())
                     {
                         lock (_devices)
                             _devices.Add(device); // keep list of all successfully connected devices
                         UIAddDevice?.Invoke(device);
-                        Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"DeviceServer.AddDevice: {device} successfully added");
+                        Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"DeviceServer.AddDevice: {device} successfully added");
                         return;
                     }
                     Thread.Sleep(1000); // just let it cool down, and try again later
                 }
 
                 // if we fail after 5 times, close the device
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.AddDevice: {device} GetProperties failed after 5 times");
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"DeviceServer.AddDevice: {device} GetProperties failed after 5 times");
                 device.Close();
             }
             else
@@ -157,7 +157,7 @@ namespace CockpitHardwareHUB_v2.Classes
                 lock (_devices)
                     _devices.Add(device); // keep list of all successfully connected devices
                 UIAddDevice?.Invoke(device);
-                Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"DeviceServer.AddDevice: {device} successfully added");
+                Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"DeviceServer.AddDevice: {device} successfully added");
                 return;
             }
         }
@@ -169,7 +169,7 @@ namespace CockpitHardwareHUB_v2.Classes
             UIRemoveDevice?.Invoke(device);
 
             device.Close();
-            Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"DeviceServer.RemoveDevice: {device} successfully removed");
+            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"DeviceServer.RemoveDevice: {device} successfully removed");
         }
 
         internal static void RemoveDevice(string PNPDeviceID)
@@ -177,7 +177,7 @@ namespace CockpitHardwareHUB_v2.Classes
             COMDevice device = FindDeviceBasedOnPNPDeviceID(PNPDeviceID);
             if (device == null)
             {
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"DeviceServer.RemoveDevice: {PNPDeviceID} not found in _devices");
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"DeviceServer.RemoveDevice: {PNPDeviceID} not found in _devices");
                 return;
             }
             RemoveDevice(device);

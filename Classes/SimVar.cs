@@ -192,7 +192,7 @@ namespace CockpitHardwareHUB_v2.Classes
                 catch (ArgumentException)
                 {
                     // This should never happen. If it does, it means that a device has registered the same read variable more than once.
-                    Logging.LogLine(LogLevel.Error, LoggingSource.PRP, $"SimVar.IncUsageCnt: Listener {device} already exists for sPropStr {sPropStr}.");
+                    Logging.Log(LogLevel.Error, LoggingSource.PRP, () => $"SimVar.IncUsageCnt: Listener {device} already exists for sPropStr {sPropStr}.");
                 }
             }
             // Update the Usage Cnt and Value in the UI
@@ -205,7 +205,7 @@ namespace CockpitHardwareHUB_v2.Classes
             {
                 if (_iUsageCnt == 0)
                 {
-                    Logging.LogLine(LogLevel.Error, LoggingSource.PRP, $"SimVar.DecUsageCnt: _iUsageCnt was already 0.");
+                    Logging.Log(LogLevel.Error, LoggingSource.PRP, () => $"SimVar.DecUsageCnt: _iUsageCnt was already 0.");
                     return -1;
                 }
 
@@ -214,7 +214,7 @@ namespace CockpitHardwareHUB_v2.Classes
 
                 if (_bRead && !_Listeners.Remove(device))
                     // This should never happen. If it does, it means that we try to remove a listener that isn't registered.
-                    Logging.LogLine(LogLevel.Error, LoggingSource.PRP, $"SimVar.DecUsageCnt: Listener {device} doesn't exist for sPropStr {sPropStr}.");
+                    Logging.Log(LogLevel.Error, LoggingSource.PRP, () => $"SimVar.DecUsageCnt: Listener {device} doesn't exist for sPropStr {sPropStr}.");
             }
 
             // Update the Usage Cnt in the UI
@@ -276,7 +276,7 @@ namespace CockpitHardwareHUB_v2.Classes
             {
                 if (_SimVarsByName.ContainsKey(sPropStr) || _SimVarsById.ContainsKey(iVarId))
                 {
-                    Logging.LogLine(LogLevel.Error, LoggingSource.PRP, $"PropertyPool.AddSimVar: simVar {sPropStr} with iVarId {iVarId} already exists");
+                    Logging.Log(LogLevel.Error, LoggingSource.PRP, () => $"PropertyPool.AddSimVar: simVar {sPropStr} with iVarId {iVarId} already exists");
                     return false;
                 }
 
@@ -551,9 +551,9 @@ namespace CockpitHardwareHUB_v2.Classes
             }
 
             if (bConversionSucceeded)
-                Logging.LogLine(LogLevel.Debug, LoggingSource.APP, $"SimVar.ConvertDataForSimVar: {dr.requestId} \"{dr.nameOrCode}\" has value \"{sValue}\"");
+                Logging.Log(LogLevel.Debug, LoggingSource.APP, () => $"SimVar.ConvertDataForSimVar: {dr.requestId} \"{dr.nameOrCode}\" has value \"{sValue}\"");
             else
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimVar.ConvertDataForSimVar: {dr.requestId} \"{dr.nameOrCode}\" - Conversion failed");
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimVar.ConvertDataForSimVar: {dr.requestId} \"{dr.nameOrCode}\" - Conversion failed");
 
             return bConversionSucceeded;
         }
@@ -590,9 +590,9 @@ namespace CockpitHardwareHUB_v2.Classes
             }
 
             if (bConversionSucceeded)
-                Logging.LogLine(LogLevel.Debug, LoggingSource.APP, $"SimVar.CheckDataForSimVar: {sData} is a valid {ValType}");
+                Logging.Log(LogLevel.Debug, LoggingSource.APP, () => $"SimVar.CheckDataForSimVar: {sData} is a valid {ValType}");
             else
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimVar.CheckDataForSimVar: Value {sData} is not a valid {ValType}");
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimVar.CheckDataForSimVar: Value {sData} is not a valid {ValType}");
 
             return bConversionSucceeded;
         }
