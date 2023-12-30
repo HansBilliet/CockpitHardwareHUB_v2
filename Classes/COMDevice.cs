@@ -9,10 +9,10 @@ namespace CockpitHardwareHUB_v2.Classes
     internal class Property
     {
         private readonly string _sPropStr; // This is the full string of the Property (ToUpper) as sent by the HW device
-        private int _iSimId = -1; // Once registered as a SimVar in the SimClient, a VarId is given
+        private int _iVarId = -1; // Once registered as a SimVar in the SimClient, a VarId is given
 
         internal string sPropStr => _sPropStr;
-        internal int iSimId { get => _iSimId; set => _iSimId = value; }
+        internal int iVarId { get => _iVarId; set => _iVarId = value; }
 
         internal Property(string sPropStr) => _sPropStr = sPropStr.ToUpper();
     }
@@ -21,20 +21,17 @@ namespace CockpitHardwareHUB_v2.Classes
     {
         // creates unique DeviceId
         static private int _iNewDeviceId = 0;
-
         private readonly int _iDeviceId;
-
-        private readonly byte[] LF = { (byte)'\n' };
 
         private readonly SerialPort _serialPort = new();
 
+        private readonly byte[] LF = { (byte)'\n' };
+
         private readonly bool _bVirtualDevice = false;
 
-        private readonly string _PortName;
-        internal string PortName => _PortName;
+        internal string PortName { get; }
 
-        private readonly string _PNPDeviceID;
-        internal string PNPDeviceID => _PNPDeviceID;
+        internal string PNPDeviceID { get; }
 
         private string _DeviceName;
         internal string DeviceName => _DeviceName;
@@ -44,7 +41,7 @@ namespace CockpitHardwareHUB_v2.Classes
 
         internal string UniqueName => $"{_iDeviceId:D02}\\{PortName}\\{(_DeviceName == "" ? "UNKNOWN" : _DeviceName)}";
 
-        // List of property strings - Property ID = [index + 1]
+        // List of property strings. Be aware that the 'Property ID' (ID used in device) = [index + 1]
         private readonly List<Property> _Properties = new();
         internal IReadOnlyCollection<Property> Properties => _Properties;
 
@@ -86,7 +83,7 @@ namespace CockpitHardwareHUB_v2.Classes
             _iDeviceId = Interlocked.Increment(ref _iNewDeviceId);
 
             _bVirtualDevice = (portName == "VIRTUAL");
-            _PortName = portName;
+            PortName = portName;
 
             if (!_bVirtualDevice)
             {
@@ -109,10 +106,9 @@ namespace CockpitHardwareHUB_v2.Classes
             {
                 _DeviceName = "VIRTUAL";
                 _ProcessorType = "N/A";
-                //_PNPDeviceID = "N/A";
             }
 
-            _PNPDeviceID = pnpDeviceID.ToUpper();
+            PNPDeviceID = pnpDeviceID.ToUpper();
         }
 
         public override bool Equals(object obj)
@@ -203,7 +199,7 @@ namespace CockpitHardwareHUB_v2.Classes
                 StopPumps();
 
             foreach (Property property in _Properties)
-                PropertyPool.RemovePropertyFromPool(this, property.iSimId);
+                PropertyPool.RemovePropertyFromPool(this, property.iVarId);
 
             if (_bVirtualDevice)
                 return true;
@@ -223,10 +219,7 @@ namespace CockpitHardwareHUB_v2.Classes
         private void ClearInputBuffer()
         {
             if (_bVirtualDevice)
-            {
-                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.ClearInputBuffer {PortName}: Operation not allowed for Virtual Device");
                 return;
-            }
 
             while (true)
             {
@@ -242,14 +235,11 @@ namespace CockpitHardwareHUB_v2.Classes
         internal bool GetProperties()
         {
             if (_bVirtualDevice)
-            {
-                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.GetProperties {PortName}: Operation not allowed for Virtual Device");
                 return false;
-            }
 
             try
             {
-                // remove all earlier received properties in both dictionaries (although, at this point in time, _PropertiesBySimVar will be empty)
+                // remove all earlier received properties in case we call GetProperties again after a possible failure
                 _Properties.Clear();
 
                 // clean receive buffer (at least, try...)
@@ -259,7 +249,7 @@ namespace CockpitHardwareHUB_v2.Classes
                 // make sure that device is in non-registered mode
                 _serialPort.Write("RESET\n");
 
-                // TODO: Improvement in HW - after RESET we should not send acknowledge - now, let's wait 200 msec, and then clear the input buffer
+                // TODO: Improvement in HW - after RESET, a device should not send acknowledge - but now it does, so wait 200msec and clear the inputbuffer
                 Thread.Sleep(200);
 
                 ClearInputBuffer(); // We should not get anything back, so make sure that all is clean
@@ -272,24 +262,25 @@ namespace CockpitHardwareHUB_v2.Classes
 
                 // get properties to register
                 _serialPort.Write("REGISTER\n");
-
                 int iPropId = 1; // only for logging purposes
                 string sPropStr;
                 while ((sPropStr = _serialPort.ReadLine()) != "")
                 {
+                    if (iPropId == 5) // Test faulty properties
+                        sPropStr = "blablabla";
                     // Add each property in the property list of the COMDevice - the PropertyId is the index + 1
                     _Properties.Add(new Property(sPropStr));
                     Logging.LogLine(LogLevel.Debug, LoggingSource.DEV, $"COMDevice.GetProperties: {this} REGISTER {iPropId++} = \"{sPropStr}\"");
                 }
 
                 // During 'ReadLine()', exceptions can be thrown which aborts the 'GetProperties()'.
-                // Because of that, 'AddPropertyInPool()' is only called when all Properties are loaded successfully, otherwise multiple usage might occur.
-                // We use For-loop, because we need it in the call to 'AddPropertyInPool()' - be aware that the index is [iPropId - 1]
+                // Because of that, 'AddPropertyInPool()' is only called after all Properties are loaded successfully
+                // We use For-loop, because we need the iPropId in the call to 'AddPropertyInPool()' - be aware that the index is [iPropId - 1]
                 for (iPropId = 1; iPropId <= _Properties.Count; iPropId++)
                 {
                     Property property = _Properties[iPropId - 1];
                     // Add the Property to the Pool. If successfully parsed, we will get a SimId not equal to -1.
-                    property.iSimId = PropertyPool.AddPropertyInPool(this, iPropId, property.sPropStr);
+                    property.iVarId = PropertyPool.AddPropertyInPool(this, iPropId, property.sPropStr, out _);
                 }
 
                 // Start the TxPump and RxPump
@@ -309,17 +300,17 @@ namespace CockpitHardwareHUB_v2.Classes
             }
         }
 
-        internal void AddProperty(string sPropStr)
+        // AddProperty is only used for the VIRTUAL COMDevice, and allows manually adding properties one by one
+        internal PR AddProperty(string sPropStr)
         {
-            int iPropId = _Properties.Count;
+            int iPropId = _Properties.Count; // Take next Property Id
             Property property = new Property(sPropStr);
-            property.iSimId = PropertyPool.AddPropertyInPool(this, iPropId, property.sPropStr);
-            if (property.iSimId == -1)
-            {
-                Logging.LogLine(LogLevel.Error, LoggingSource.DEV, $"COMDevice.AddProperty: {this} Property not added to device");
-                return;
-            }
-            _Properties.Add(property);
+            property.iVarId = PropertyPool.AddPropertyInPool(this, iPropId, property.sPropStr, out PR parseResult);
+
+            if (property.iVarId != -1)
+                _Properties.Add(property);
+
+            return parseResult;
         }
 
         internal void StartPumps()
@@ -427,7 +418,7 @@ namespace CockpitHardwareHUB_v2.Classes
                                 Logging.LogLine(LogLevel.Debug, LoggingSource.DEV, $"COMDevice.RxPump: {this} Command \"{sbCmd}\"");
                                 if (!ct.IsCancellationRequested)
                                 {
-                                    PropertyPool.TriggerProperty(_Properties[iPropId-1].iSimId, sbCmd.ToString().AsSpan(4).ToString());
+                                    PropertyPool.TriggerProperty(_Properties[iPropId-1].iVarId, sbCmd.ToString().AsSpan(4).ToString());
                                     stats._cmdRxCnt = Interlocked.Increment(ref stats._cmdRxCnt);
                                 }
                             }

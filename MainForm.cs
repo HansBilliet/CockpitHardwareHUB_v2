@@ -131,7 +131,7 @@ namespace CockpitHardwareHUB_v2
                 if (!_bVirtualDeviceConnected)
                     txtSimVar.Text = "";
                 btnConnectVD.Enabled = true;
-                btnConnectVD.Text = $"{(_bVirtualDeviceConnected ? "Disconnect" : "Connect")}  Virtual Device";
+                btnConnectVD.Text = $"{(_bVirtualDeviceConnected ? "Disconnect" : "Connect")} Virtual Device";
                 btnAddProperty.Enabled = _bVirtualDeviceConnected;
                 btnSendToDevices.Enabled = _bVirtualDeviceConnected;
                 btnSendToMSFS.Enabled = _bVirtualDeviceConnected;
@@ -139,6 +139,8 @@ namespace CockpitHardwareHUB_v2
             else
             {
                 txtExecCalcCode.Enabled = false;
+                txtExecCalcCode.Text = "";
+                txtExecCalcCodeResult.Text = "";
                 btnSendExecCalcCode.Enabled = false;
 
                 txtSimVar.Text = "";
@@ -228,7 +230,7 @@ namespace CockpitHardwareHUB_v2
                     {
                         if (txtProperties.Text != "")
                             txtProperties.AppendText(Environment.NewLine);
-                        txtProperties.AppendText($"{index++:D03}: {property.sPropStr}");
+                        txtProperties.AppendText($"{index++:D03}/{(property.iVarId == -1 ? "FAIL" : property.iVarId.ToString("D04"))}: {property.sPropStr}");
                     }
                     txtProperties.Select(0, 0);
                     txtProperties.ScrollToCaret();
@@ -270,6 +272,7 @@ namespace CockpitHardwareHUB_v2
             }
         }
 
+        // GroupBox Connect/Disconnect
         private async void btnConnect_Click(object sender, EventArgs e)
         {
             if (!SimClient.IsConnected)
@@ -283,6 +286,7 @@ namespace CockpitHardwareHUB_v2
             UIOnUpdateConnectStatus(SimClient.IsConnected);
         }
 
+        // GroupBox Devices
         private void cbDevices_SelectionChangeCommitted(object sender, EventArgs e)
         {
             _Devices.TryGetValue(cbDevices.SelectedItem.ToString(), out var _SelectedDevice);
@@ -296,6 +300,132 @@ namespace CockpitHardwareHUB_v2
             UI_ResetStatistics();
         }
 
+        // GroupBox Execute Calculator Code
+        private void btnSendExecCalcCode_Click(object sender, EventArgs e)
+        {
+            if (txtExecCalcCode.Text == "")
+            {
+                MessageBox.Show("Enter an Calculator Code in the input field.", "Input required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Execute the calculator code and show the result
+            HR hr = SimClient.ExecuteCalculatorCode(txtExecCalcCode.Text, out string s);
+            if (hr != HR.OK)
+            {
+                txtExecCalcCodeResult.Text = "";
+                MessageBox.Show($"execute_calculator_code failed with \"{hr}\"", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            txtExecCalcCodeResult.Text = s;
+        }
+
+        // GroupBox Virtual Device
+        private void btnConnectVD_Click(object sender, EventArgs e)
+        {
+            if (!_bVirtualDeviceConnected)
+            {
+                DeviceServer.AddDevice("VIRTUAL", "VIRTUAL");
+                _bVirtualDeviceConnected = true;
+            }
+            else
+            {
+                DeviceServer.RemoveDevice("VIRTUAL");
+                _bVirtualDeviceConnected = false;
+            }
+            UpdateVirtualDeviceUIElements();
+        }
+
+        private void btnAddProperty_Click(object sender, EventArgs e)
+        {
+            if (txtSimVar.Text == "")
+            {
+                MessageBox.Show("Enter a Property String in the input field.", "Input required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            COMDevice device = DeviceServer.FindDeviceBasedOnPNPDeviceID("VIRTUAL");
+            if (device == null)
+            {
+                MessageBox.Show("VIRTUAL device seems not to exist. Something went wrong", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            PR parseResult = device.AddProperty(txtSimVar.Text);
+            if (parseResult != PR.Ok)
+            {
+                MessageBox.Show($"Property String parse error: {parseResult}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            UI_UpdateUSBDevices(true);
+        }
+
+        private void SendSimVar(bool bRead)
+        {
+            if (txtSimVar.Text == "")
+            {
+                MessageBox.Show("Enter an existing Variable number with optional data in the input field." + Environment.NewLine + Environment.NewLine +
+                                "Accepted formats are:" + Environment.NewLine +
+                                " NNN" + Environment.NewLine +
+                                " NNN=" + Environment.NewLine +
+                                " NNN=Data", "Input required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Split the rxtSimVar input by '='
+            string[] parts = txtSimVar.Text.Split(new char[] { '=' }, 2);
+
+            // Check if first part is a number
+            if (!int.TryParse(parts[0], out int iVarId))
+            {
+                MessageBox.Show($"[{parts[0]}] is not a valid number.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            // Find the SimVar
+            SimVar simVar = SimVar.GetSimVarById(iVarId);
+            if (simVar == null)
+            {
+                MessageBox.Show($"SimVar [{iVarId}] does not exist.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            // If there is data available, check if it matches with the ValType of the SimVar
+            if (parts.Length > 1 && !simVar.CheckDataForSimVar(parts[1]))
+            {
+                MessageBox.Show($"SimVar [{iVarId}] requires data of type \"{simVar.sValType}\".", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (bRead ? !simVar.bRead : !simVar.bWrite)
+            {
+                MessageBox.Show($"SimVar with Id [{iVarId}] is not a \"{(bRead ? "Read" : "Write")}\" variable.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (bRead)
+                // Dispatch SimVar to all devices that are listening
+                simVar.DispatchSimVar();
+            else
+                // Send SimVar to MSFS
+                SimClient.TriggerSimVar(simVar, parts.Length > 1 ? parts[1] : "");
+        }
+
+        private void btnSendToMSFS_Click(object sender, EventArgs e)
+        {
+            // Send SimVar to MSFS
+            SendSimVar(false);
+        }
+
+        private void btnSendToDevices_Click(object sender, EventArgs e)
+        {
+            // Dispatch SimVar to all devices that are listening
+            SendSimVar(true);
+        }
+
+        // GroupBox Variables
         private void txtVariablesFilter_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter)
@@ -310,6 +440,7 @@ namespace CockpitHardwareHUB_v2
                 _ListViewControllerVariables.FilterRW = cbRW.SelectedItem.ToString();
         }
 
+        // GroupBox Logging
         private void txtLoggingFilter_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter)
@@ -340,80 +471,6 @@ namespace CockpitHardwareHUB_v2
             txtLogFileName.Text = FileLogger.sFileName;
 
             _bLogToFile = cbLogToFile.Checked;
-        }
-
-        private void btnConnectVD_Click(object sender, EventArgs e)
-        {
-            if (!_bVirtualDeviceConnected)
-            {
-                DeviceServer.AddDevice("VIRTUAL", "VIRTUAL");
-                _bVirtualDeviceConnected = true;
-            }
-            else
-            {
-                DeviceServer.RemoveDevice("VIRTUAL");
-                _bVirtualDeviceConnected = false;
-            }
-            UpdateVirtualDeviceUIElements();
-        }
-
-        private void btnAddProperty_Click(object sender, EventArgs e)
-        {
-            if (txtSimVar.Text == "")
-                return;
-
-            COMDevice device = DeviceServer.FindDeviceBasedOnPNPDeviceID("VIRTUAL");
-            device?.AddProperty(txtSimVar.Text);
-            UI_UpdateUSBDevices(true);
-        }
-
-        private void btnSendToMSFS_Click(object sender, EventArgs e)
-        {
-            if (txtSimVar.Text == "")
-                return;
-
-            // Split the SimVar input by '='
-            string[] parts = txtSimVar.Text.Split(new char[] { '=' }, 2);
-
-            if (!int.TryParse(parts[0], out int iSimId))
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"MainForm.btnSendToMSFS_Click: {parts[0]} is not a number");
-
-            PropertyPool.TriggerProperty(iSimId, parts.Length > 1 ? parts[1] : "");
-        }
-
-        private void btnSendToDevices_Click(object sender, EventArgs e)
-        {
-            if (txtSimVar.Text == "")
-                return;
-
-            // Split the SimVar input by '='
-            string[] parts = txtSimVar.Text.Split(new char[] { '=' }, 2);
-
-            if (!int.TryParse(parts[0], out int iSimId))
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"MainForm.btnSendToDevices_Click: {parts[0]} is not a number");
-
-            SimVar simVar = SimVar.GetSimVarById(iSimId);
-
-            if (parts.Length > 1 && !simVar.CheckDataForSimVar(parts[1]))
-                return;
-
-            simVar.DispatchSimVar();
-        }
-
-        private void btnSendExecCalcCode_Click(object sender, EventArgs e)
-        {
-            if (txtExecCalcCode.Text == "")
-                return;
-
-            if (!SimClient.ExecuteCalculatorCode(txtExecCalcCode.Text, out double d, out string s))
-                return;
-
-            txtExecCalcCodeString.Text = s;
-
-            if (double.TryParse(s, NumberStyles.Any, CultureInfo.GetCultureInfo("en-US"), out double dVal))
-                txtExecCalcCodeNumber.Text = dVal.ToString("0.000", CultureInfo.GetCultureInfo("en-US"));
-            else
-                txtExecCalcCodeNumber.Text = "";
         }
     }
 

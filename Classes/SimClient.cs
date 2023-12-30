@@ -340,7 +340,7 @@ namespace CockpitHardwareHUB_v2.Classes
             if (!IsConnected || IsStarted == 0 || !simVar.bIsRegistered || !simVar.bWrite)
                 return;
 
-            Logging.LogLine(LogLevel.Debug, LoggingSource.APP, $"SimClient.TriggerSimVar: iSimId = {simVar.iVarId} = {sData}");
+            Logging.LogLine(LogLevel.Debug, LoggingSource.APP, $"SimClient.TriggerSimVar: iVarId = {simVar.iVarId} = {sData}");
 
             switch (simVar.cVarType)
             {
@@ -364,15 +364,10 @@ namespace CockpitHardwareHUB_v2.Classes
             }
         }
 
-        internal static bool ExecuteCalculatorCode(string sCode, out double d, out string s)
+        internal static HR ExecuteCalculatorCode(string sCode, out string s)
         {
-            HR hr = _WASimClient.executeCalculatorCode(sCode, CalcResultType.String, out d, out s);
-            if (hr != HR.OK)
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"SimClient.ExecuteCalculatorCode: \"{sCode}\" failed with {hr}");
-            else
-                Logging.LogLine(LogLevel.Info, LoggingSource.APP, $"SimClient.ExecuteCalculatorCode: \"{sCode}\" returns double {d} and string \"{s}\"");
-
-            return hr == HR.OK;
+            HR hr = _WASimClient.executeCalculatorCode(sCode, CalcResultType.String, out _, out s);
+            return hr;
         }
     }
 }

@@ -7,7 +7,7 @@ namespace CockpitHardwareHUB_v2.Classes
         internal delegate void UIUpdateVariable_Handler(UpdateVariable uv, SimVar simVar);
         internal static event UIUpdateVariable_Handler UIUpdateVariable;
 
-        internal static int AddPropertyInPool(COMDevice device, int iPropId, string sPropStr)
+        internal static int AddPropertyInPool(COMDevice device, int iPropId, string sPropStr, out PR parseResult)
         {
             // Check if variable already exists
             SimVar simVar = SimVar.GetSimVarByName(sPropStr);
@@ -19,11 +19,14 @@ namespace CockpitHardwareHUB_v2.Classes
                 // Send value immediately to device
                 device.AddCmdToTxPumpQueue(iPropId, simVar.sValue); // Pumps aren't running yet, so this will only be queued
 
+                parseResult = PR.Ok;
                 return simVar.iVarId;
             }
 
             // If variable doesn't exist yet, create a new variable
             simVar = new SimVar(sPropStr, UIUpdateVariable);
+            parseResult = simVar.ParseResult;
+
             if (simVar.ParseResult != PR.Ok)
             {
                 // Parsing of sPropStr failed
@@ -67,30 +70,24 @@ namespace CockpitHardwareHUB_v2.Classes
             simVar.RemoveSimVar();
         }
 
-        internal static void TriggerProperty(SimVar simVar, string sData, bool bCheckDataForSimVar = false)
+        internal static void TriggerProperty(int iVarId, string sData)
         {
+            // Check if variable exists
+            SimVar simVar = SimVar.GetSimVarById(iVarId);
+            if (simVar == null)
+            {
+                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"PropertyPool.TriggerProperty: SimVar with ID {iVarId} not found");
+                return;
+            }
+
+            // Check if variable is writeable
             if (!simVar.bWrite)
             {
                 Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"PropertyPool.TriggerProperty: SimVar with ID {simVar.iVarId} is not a Write property");
                 return;
             }
 
-            if (bCheckDataForSimVar && !simVar.CheckDataForSimVar(sData))
-                return;
-
             SimClient.TriggerSimVar(simVar, sData);
-        }
-
-        internal static void TriggerProperty(int iSimId, string sData)
-        {
-            // Check if variable exists
-            SimVar simVar = SimVar.GetSimVarById(iSimId);
-            if (simVar == null)
-            {
-                Logging.LogLine(LogLevel.Error, LoggingSource.APP, $"PropertyPool.TriggerProperty: SimVar with ID {iSimId} not found");
-                return;
-            }
-            TriggerProperty(simVar, sData);
         }
     }
 }

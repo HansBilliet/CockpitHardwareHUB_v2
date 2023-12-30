@@ -69,10 +69,8 @@
             btnConnectVD = new Button();
             txtSimVar = new TextBox();
             grpExecCalcode = new GroupBox();
-            txtExecCalcCodeString = new TextBox();
-            lblExecCalcCodeString = new Label();
-            txtExecCalcCodeNumber = new TextBox();
-            lblExecCalcCodeNumber = new Label();
+            txtExecCalcCodeResult = new TextBox();
+            lblExecCalcCodeResult = new Label();
             btnSendExecCalcCode = new Button();
             txtExecCalcCode = new TextBox();
             grpConnect.SuspendLayout();
@@ -525,10 +523,8 @@
             // 
             // grpExecCalcode
             // 
-            grpExecCalcode.Controls.Add(txtExecCalcCodeString);
-            grpExecCalcode.Controls.Add(lblExecCalcCodeString);
-            grpExecCalcode.Controls.Add(txtExecCalcCodeNumber);
-            grpExecCalcode.Controls.Add(lblExecCalcCodeNumber);
+            grpExecCalcode.Controls.Add(txtExecCalcCodeResult);
+            grpExecCalcode.Controls.Add(lblExecCalcCodeResult);
             grpExecCalcode.Controls.Add(btnSendExecCalcCode);
             grpExecCalcode.Controls.Add(txtExecCalcCode);
             grpExecCalcode.Location = new Point(305, 10);
@@ -538,39 +534,22 @@
             grpExecCalcode.TabStop = false;
             grpExecCalcode.Text = "execute_calculator_code";
             // 
-            // txtExecCalcCodeString
+            // txtExecCalcCodeResult
             // 
-            txtExecCalcCodeString.Location = new Point(219, 49);
-            txtExecCalcCodeString.Name = "txtExecCalcCodeString";
-            txtExecCalcCodeString.ReadOnly = true;
-            txtExecCalcCodeString.Size = new Size(495, 23);
-            txtExecCalcCodeString.TabIndex = 7;
+            txtExecCalcCodeResult.Location = new Point(55, 49);
+            txtExecCalcCodeResult.Name = "txtExecCalcCodeResult";
+            txtExecCalcCodeResult.ReadOnly = true;
+            txtExecCalcCodeResult.Size = new Size(659, 23);
+            txtExecCalcCodeResult.TabIndex = 7;
             // 
-            // lblExecCalcCodeString
+            // lblExecCalcCodeResult
             // 
-            lblExecCalcCodeString.AutoSize = true;
-            lblExecCalcCodeString.Location = new Point(172, 52);
-            lblExecCalcCodeString.Name = "lblExecCalcCodeString";
-            lblExecCalcCodeString.Size = new Size(41, 15);
-            lblExecCalcCodeString.TabIndex = 6;
-            lblExecCalcCodeString.Text = "String:";
-            // 
-            // txtExecCalcCodeNumber
-            // 
-            txtExecCalcCodeNumber.Location = new Point(66, 49);
-            txtExecCalcCodeNumber.Name = "txtExecCalcCodeNumber";
-            txtExecCalcCodeNumber.ReadOnly = true;
-            txtExecCalcCodeNumber.Size = new Size(100, 23);
-            txtExecCalcCodeNumber.TabIndex = 3;
-            // 
-            // lblExecCalcCodeNumber
-            // 
-            lblExecCalcCodeNumber.AutoSize = true;
-            lblExecCalcCodeNumber.Location = new Point(6, 52);
-            lblExecCalcCodeNumber.Name = "lblExecCalcCodeNumber";
-            lblExecCalcCodeNumber.Size = new Size(54, 15);
-            lblExecCalcCodeNumber.TabIndex = 2;
-            lblExecCalcCodeNumber.Text = "Number:";
+            lblExecCalcCodeResult.AutoSize = true;
+            lblExecCalcCodeResult.Location = new Point(7, 52);
+            lblExecCalcCodeResult.Name = "lblExecCalcCodeResult";
+            lblExecCalcCodeResult.Size = new Size(42, 15);
+            lblExecCalcCodeResult.TabIndex = 6;
+            lblExecCalcCodeResult.Text = "Result:";
             // 
             // btnSendExecCalcCode
             // 
@@ -668,9 +647,7 @@
         private GroupBox grpExecCalcode;
         private Button btnSendExecCalcCode;
         private TextBox txtExecCalcCode;
-        private TextBox txtExecCalcCodeNumber;
-        private Label lblExecCalcCodeNumber;
-        private TextBox txtExecCalcCodeString;
-        private Label lblExecCalcCodeString;
+        private TextBox txtExecCalcCodeResult;
+        private Label lblExecCalcCodeResult;
     }
 }

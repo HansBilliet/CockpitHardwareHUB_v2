@@ -44,6 +44,16 @@ namespace CockpitHardwareHUB_v2.Classes
         MAX
     }
 
+    //public struct ValueTypes
+    //{
+    //    public const uint DATA_TYPE_INT8 = uint.MaxValue;
+    //    public const uint DATA_TYPE_INT16 = 4294967294u;
+    //    public const uint DATA_TYPE_INT32 = 4294967293u;
+    //    public const uint DATA_TYPE_INT64 = 4294967292u;
+    //    public const uint DATA_TYPE_FLOAT = 4294967291u;
+    //    public const uint DATA_TYPE_DOUBLE = 4294967290u;
+    //}
+
     internal class SimVar
     {
         private readonly UIUpdateVariable_Handler UIUpdateVariable;
@@ -84,9 +94,29 @@ namespace CockpitHardwareHUB_v2.Classes
 
         // ValType can be one of "INT32", "INT64", "FLOAT32", "FLOAT64", "STRING8", "STRING32", "STRING64", "STRING128", "STRING256" or "STRING260"
         private SIMCONNECT_DATATYPE _scValType;
-        private uint _ValType;
         internal SIMCONNECT_DATATYPE scValType => _scValType;
+
+        private uint _ValType;
         internal uint ValType => _ValType;
+
+        public string sValType { get {
+            switch (_ValType)
+            {
+                case ValueTypes.DATA_TYPE_INT8:
+                    return "int8";
+                case ValueTypes.DATA_TYPE_INT16:
+                    return "int16";
+                case ValueTypes.DATA_TYPE_INT32:
+                    return "int32";
+                case ValueTypes.DATA_TYPE_INT64:
+                    return "int64";
+                case ValueTypes.DATA_TYPE_FLOAT:
+                    return "float";
+                case ValueTypes.DATA_TYPE_DOUBLE:
+                    return "double";
+                default:
+                    return "unknown";
+            }}}
 
         // VarType can be one of 'A', 'L', 'X' or 'K'
         private char _cVarType;
@@ -430,52 +460,42 @@ namespace CockpitHardwareHUB_v2.Classes
                 case "INT32":
                     _scValType = SIMCONNECT_DATATYPE.INT32;
                     _ValType = ValueTypes.DATA_TYPE_INT32;
-                    //_oValue = Activator.CreateInstance<Int32>();
                     return true;
                 case "INT64":
                     _scValType = SIMCONNECT_DATATYPE.INT64;
                     _ValType = ValueTypes.DATA_TYPE_INT64;
-                    //_oValue = Activator.CreateInstance<Int64>();
                     return true;
                 case "FLOAT32":
                     _scValType = SIMCONNECT_DATATYPE.FLOAT32;
                     _ValType = ValueTypes.DATA_TYPE_FLOAT;
-                    //_oValue = Activator.CreateInstance<float>();
                     return true;
                 case "FLOAT64":
                     _scValType = SIMCONNECT_DATATYPE.FLOAT64;
                     _ValType = ValueTypes.DATA_TYPE_DOUBLE;
-                    //_oValue = Activator.CreateInstance<double>();
                     return true;
                 case "STRING8":
                     _scValType = SIMCONNECT_DATATYPE.STRING8;
                     _ValType = 0;
-                    //_oValue = Activator.CreateInstance<String8>();
                     return true;
                 case "STRING32":
                     _scValType = SIMCONNECT_DATATYPE.STRING32;
                     _ValType = 0;
-                    //_oValue = Activator.CreateInstance<String32>();
                     return true;
                 case "STRING64":
                     _scValType = SIMCONNECT_DATATYPE.STRING64;
                     _ValType = 0;
-                    //_oValue = Activator.CreateInstance<String64>();
                     return true;
                 case "STRING128":
                     _scValType = SIMCONNECT_DATATYPE.STRING128;
                     _ValType = 0;
-                    //_oValue = Activator.CreateInstance<String128>();
                     return true;
                 case "STRING256":
                     _scValType = SIMCONNECT_DATATYPE.STRING256;
                     _ValType = 0;
-                    //_oValue = Activator.CreateInstance<String256>();
                     return true;
                 case "STRING260":
                     _scValType = SIMCONNECT_DATATYPE.STRING260;
                     _ValType = 0;
-                    //_oValue = Activator.CreateInstance<String260>();
                     return true;
                 default:
                     _scValType = SIMCONNECT_DATATYPE.NONE;
