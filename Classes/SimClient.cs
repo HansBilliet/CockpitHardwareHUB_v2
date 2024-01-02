@@ -21,7 +21,7 @@ namespace CockpitHardwareHUB_v2.Classes
             // Only use the Remote LogFacility for Client and Server
             _WASimClient.setLogLevel(logLevel, LogFacility.Remote, LogSource.Client);
             _WASimClient.setLogLevel(LogLevel.None, LogFacility.Console | LogFacility.File, LogSource.Client);
-            _WASimClient.setLogLevel(logLevel, LogFacility.Remote, LogSource.Server);
+            _WASimClient.setLogLevel(logLevel == LogLevel.Trace ? LogLevel.Debug : logLevel, LogFacility.Remote, LogSource.Server);
             _WASimClient.setLogLevel(LogLevel.None, LogFacility.Console | LogFacility.File, LogSource.Server);
 
             Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"LogLevel set to {logLevel}");
@@ -70,8 +70,11 @@ namespace CockpitHardwareHUB_v2.Classes
                 return;
             }
 
-            if (!simVar.ConvertDataForSimVar(dr))
+            if (!simVar.ConvertDataRequestRecordToString(dr))
+            {
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.DataSubscriptionHandler: {dr.requestId} \"{dr.nameOrCode}\" - Could not convert to string");
                 return;
+            }
 
             simVar.DispatchSimVar();
         }
@@ -173,196 +176,320 @@ namespace CockpitHardwareHUB_v2.Classes
 
         internal static bool RegisterSimVar(SimVar simVar)
         {
-            if (!IsConnected || simVar.bIsRegistered)
+            if (!IsConnected)
+            {
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: \"{simVar.sVarName}\" failed because Simulator is not connected");
                 return false;
+            }
+
+            if (simVar.bIsRegistered)
+            {
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: \"{simVar.sVarName}\" failed because SimVar is already registered");
+                return false;
+            }
+
+            HR hr; // Variable to keep the result of WASimClient calls
 
             switch (simVar.cVarType)
             {
                 case 'A':
-                    if (simVar.bWrite)
                     {
-                        // TODO - might be nothing needed - maybe need a different external Id for Write and Read?
-                    }
-                    if (simVar.bRead)
-                    {
-                        int Id;
-                        HR hr;
-                        hr = _WASimClient.lookup(LookupItemType.SimulatorVariable, simVar.sVarName, out Id);
-                        if (hr != HR.OK)
+                        // First lookup the variable and store the ExternalId in the SimVar - if it fails, then the ExternalId will remain 0
+                        // The id's are only used for reading 'A'-Vars. For writing, the full names are used, as there is no Gauge API function to write.
+                        if ((hr = _WASimClient.lookup(LookupItemType.SimulatorVariable, simVar.sVarName, out int externalId)) != HR.OK)
                         {
-                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: {simVar.sVarName} failed with {hr}");
+                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: " +
+                                $"'A'-var \"{simVar.sVarName}\" lookup failed with {hr}");
                             return false;
                         }
-                        simVar.ExternalId = (uint)Id;
-                        DataRequest dr = new((uint)simVar.iVarId, simVar.sVarName, simVar.sUnit, simVar.bIndex, simVar.ValType);
-                        _WASimClient.saveDataRequestAsync(dr);
+
+                        if (simVar.sUnit != "")
+                        {
+                            if ((hr = _WASimClient.lookup(LookupItemType.UnitType, simVar.sUnit, out int unitId)) != HR.OK)
+                            {
+                                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: " +
+                                    $"'A'-var \"{simVar.sVarName}\" lookup for unit failed with {hr}");
+                                return false;
+                            }
+                            simVar.iUnitId = unitId;
+                        }
+                        else
+                            simVar.iUnitId = -1;
+
+                        // If it is a Read variable, also save a DataRequest
+                        if (simVar.bRead)
+                        {
+                            DataRequest dr = new((uint)simVar.iVarId, simVar.sVarName, simVar.sUnit, simVar.Index, (uint)simVar.ValType);
+                            if ((hr = _WASimClient.saveDataRequestAsync(dr)) != HR.OK)
+                            {
+                                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: " +
+                                    $"'A'-var \"{simVar.sVarName}\" saveDataRequestAsync failed with {hr}");
+                                return false;
+                            }
+                        }
+
+                        Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.RegisterSimVar: " +
+                            $"'A'-var \"{simVar.sVarName}\" with Id's {simVar.iVarId}/{simVar.ExternalId} successfully registered for \"{simVar.sRW}\"");
+                        simVar.ExternalId = (uint)externalId;
                         simVar.bIsRegistered = true;
-                        Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.RegisterSimVar: {simVar.sVarName} with Id's {simVar.iVarId}/{simVar.ExternalId} success");
+                        break;
                     }
-                    break;
 
                 case 'L':
-                    if (simVar.bWrite)
-                    {
-                        // TODO - might be nothing needed - maybe need a different external Id for Write and Read?
-                    }
-                    if (simVar.bRead)
                     {
                         // first lookup to get the ID
-                        int Id;
-                        HR hr;
-                        hr = _WASimClient.lookup(LookupItemType.LocalVariable, simVar.sVarName, out Id);
-                        if (hr != HR.OK)
+                        if ((hr = _WASimClient.lookup(LookupItemType.LocalVariable, simVar.sVarName, out int externalId)) != HR.OK)
                         {
-                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: {simVar.sVarName} failed with {hr}");
+                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: " +
+                                $"'L'-var \"{simVar.sVarName}\" failed with {hr}");
                             return false;
                         }
-                        simVar.ExternalId = (uint)Id;
-                        DataRequest dr = new((uint)simVar.iVarId, 'L', simVar.sVarName, simVar.ValType);
-                        _WASimClient.saveDataRequestAsync(dr);
+                        // If it is a Read variable, also save a DataRequest
+                        if (simVar.bRead)
+                        {
+                            DataRequest dr = new((uint)simVar.iVarId, 'L', simVar.sVarName, (uint)simVar.ValType);
+                            if ((hr = _WASimClient.saveDataRequestAsync(dr)) != HR.OK)
+                            {
+                                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: " +
+                                    $"'L'-var \"{simVar.sVarName}\" saveDataRequestAsync failed with {hr}");
+                                return false;
+                            }
+                        }
+                        Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.RegisterSimVar: " +
+                            $"'L'-var \"{simVar.sVarName}\" with Id's {simVar.iVarId}/{simVar.ExternalId} successfully registered for \"{simVar.sRW}\"");
+                        simVar.ExternalId = (uint)externalId;
                         simVar.bIsRegistered = true;
-                        Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.RegisterSimVar: {simVar.sVarName} with Id's {simVar.iVarId}/{simVar.ExternalId} success");
+                        break;
                     }
-                    break;
 
                 case 'K':
-                    if (simVar.bWrite)
                     {
+                        if (!simVar.bWrite)
+                            break;
+
                         if (simVar.bCustomEvent)
                         {
                             // Custom Events
-                            uint uCustomEventId;
-                            HR hr = _WASimClient.registerCustomEvent(simVar.sVarName, out uCustomEventId);
-                            if (hr != HR.OK)
+                            if ((hr = _WASimClient.registerCustomEvent(simVar.sVarName, out uint externalId)) != HR.OK)
                             {
-                                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: {simVar.sVarName} failed with {hr}");
+                                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: " +
+                                    $"Custom 'K'-var \"{simVar.sVarName}\" registerCustomEvent failed with {hr}");
                                 return false;
                             }
-                            simVar.ExternalId = uCustomEventId;
-                            simVar.bIsRegistered = true;
-                            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.RegisterSimVar: {simVar.sVarName} with Id's {simVar.iVarId}/{uCustomEventId} success");
+                            simVar.ExternalId = externalId;
                         }
                         else
                         {
                             // Simulator Events
-
-                            // TODO
+                            // first lookup to get the ID
+                            if ((hr = _WASimClient.lookup(LookupItemType.KeyEventId, simVar.sVarName, out int externalId)) != HR.OK)
+                            {
+                                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: " +
+                                    $"'K'-var \"{simVar.sVarName}\" lookup failed with {hr}");
+                                return false;
+                            }
+                            simVar.ExternalId = (uint)externalId;
                         }
+                        Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.RegisterSimVar: {(simVar.bCustomEvent ? "Custom" : "")} " +
+                            $"'K'-var \"{simVar.sVarName}\" with Id's {simVar.iVarId}/{simVar.ExternalId} successfully registered for \"{simVar.sRW}\"");
+                        simVar.bIsRegistered = true;
+                        break;
                     }
-                    break;
 
                 case 'X':
-                    if (simVar.bWrite)
                     {
-                        // register X-type as calculator code events
-                        RegisteredEvent ev = new RegisteredEvent((uint)simVar.iVarId, simVar.sVarName);
-                        HR hr = _WASimClient.registerEvent(ev);
-                        if (hr != HR.OK)
+                        if (simVar.bWrite && !simVar.bFormatedXVar)
                         {
-                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: {simVar.sVarName} failed with {hr}");
-                            return false;
+                            // Register X-type as calculator code events, except if it has format specifiers, which will be then treated as normal exec_calculator_code
+                            RegisteredEvent ev = new RegisteredEvent((uint)simVar.iVarId, simVar.sVarName);
+                            if ((hr = _WASimClient.registerEvent(ev)) != HR.OK)
+                            {
+                                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: " +
+                                    $"'X'-var \"{simVar.sVarName}\" registerEvent failed with {hr}");
+                                return false;
+                            }
                         }
+                        if (simVar.bRead)
+                        {
+                            DataRequest dr = new((uint)simVar.iVarId, simVar.CRType, simVar.sVarName, (uint)simVar.ValType);
+                            if ((hr = _WASimClient.saveDataRequestAsync(dr)) != HR.OK)
+                            {
+                                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: " +
+                                    $"'X'-var \"{simVar.sVarName}\" saveDataRequestAsync failed with {hr}");
+                                return false;
+                            }
+                        }
+                        Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.RegisterSimVar: " +
+                            $"'X'-var \"{simVar.sVarName}\" with Id {simVar.iVarId} successfully registered for \"{simVar.sRW}\"");
+                        simVar.ExternalId = 0; // Just to be sure, as ExternalId is not used
                         simVar.bIsRegistered = true;
-                        Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.RegisterSimVar: {simVar.sVarName} with Id {simVar.iVarId} success");
+                        break;
                     }
-                    if (simVar.bRead)
-                    {
-                        // TODO
-                    }
-                    break;
             }
             return true;
         }
 
         internal static void UnregisterSimVar(SimVar simVar)
         {
-            if (!IsConnected || !simVar.bIsRegistered)
+            if (!IsConnected)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: {simVar.sVarName} failed {IsConnected} {IsStarted} {simVar.bIsRegistered}");
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: \"{simVar.sVarName}\" failed because Simulator is not connected");
                 return;
             }
+
+            if (!simVar.bIsRegistered)
+            {
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: \"{simVar.sVarName}\" failed because SimVar is already registered");
+                return;
+            }
+
+            HR hr; // Variable to keep the result of WASimClient calls
 
             switch (simVar.cVarType)
             {
                 case 'A':
                     if (simVar.bRead)
                     {
-                        HR hr = _WASimClient.removeDataRequest((uint)simVar.iVarId);
-                        if (hr != HR.OK)
-                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: {simVar.sVarName} failed with {hr}");
+                        if ((hr = _WASimClient.removeDataRequest((uint)simVar.iVarId)) != HR.OK)
+                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: " +
+                                $"'A'-var \"{simVar.sVarName}\" removeDataRequest failed with {hr}");
                         else
-                            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: {simVar.sVarName} with Id's {simVar.iVarId}/{simVar.ExternalId} success");
+                            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: " +
+                                $"'A'-var \"{simVar.sVarName}\" with Id's {simVar.iVarId}/{simVar.ExternalId} successfully unregistered");
                     }
                     break;
 
                 case 'L':
                     if (simVar.bRead)
                     {
-                        HR hr = _WASimClient.removeDataRequest((uint)simVar.iVarId);
-                        if (hr != HR.OK)
-                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: {simVar.sVarName} failed with {hr}");
+                        if ((hr = _WASimClient.removeDataRequest((uint)simVar.iVarId)) != HR.OK)
+                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: " +
+                                $"'L'-var \"{simVar.sVarName}\" removeDataRequest failed with {hr}");
                         else
-                            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: {simVar.sVarName} with Id's {simVar.iVarId}/{simVar.ExternalId} success");
+                            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: " +
+                                $"'L'-var \"{simVar.sVarName}\" with Id's {simVar.iVarId}/{simVar.ExternalId} successfully unregistered");
                     }
                     break;
 
                 case 'K':
-                    if (simVar.bCustomEvent)
+                    if (simVar.bWrite && simVar.bCustomEvent)
                     {
-                        HR hr = _WASimClient.removeCustomEvent((uint)simVar.ExternalId);
-                        if (hr != HR.OK)
-                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: {simVar.sVarName} failed with {hr}");
+                        // Only Custom Events can be unregistered
+                        if ((hr = _WASimClient.removeCustomEvent((uint)simVar.ExternalId)) != HR.OK)
+                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: " +
+                                $"Custom 'K'-var \"{simVar.sVarName}\" removeCustomEvent failed with {hr}");
                         else
-                            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: {simVar.sVarName} with Id's {simVar.iVarId}/{simVar.ExternalId} success");
+                            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: " +
+                                $"Custom 'K'-var \"{simVar.sVarName}\" with Id's {simVar.iVarId}/{simVar.ExternalId} successfully unregistered");
                     }
                     break;
 
                 case 'X':
-                    if (simVar.bWrite)
+                    if (simVar.bWrite && !simVar.bFormatedXVar)
                     {
-                        HR hr = _WASimClient.removeEvent((uint)simVar.iVarId);
-                        if (hr != HR.OK)
-                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: {simVar.sVarName} failed with {hr}");
+                        if ((hr = _WASimClient.removeEvent((uint)simVar.iVarId))  != HR.OK)
+                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar:" +
+                                $"'X'-var \"{simVar.sVarName}\" removeEvent failed with {hr}");
                         else
-                            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: {simVar.sVarName} with Id {simVar.iVarId} success");
+                            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: " +
+                                $"'X'-var \"{simVar.sVarName}\" with Id {simVar.iVarId} successfully unregistered for W");
                     }
                     if (simVar.bRead)
                     {
-
+                        if ((hr = _WASimClient.removeDataRequest((uint)simVar.iVarId)) != HR.OK)
+                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: " +
+                                $"'X'-var \"{simVar.sVarName}\" removeDataRequest failed with {hr}");
+                        else
+                            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: " +
+                                $"'X'-var \"{simVar.sVarName}\" with Id's {simVar.iVarId} successfully unregistered for R");
                     }
                     break;
             }
+
+            // In any case, we remove the External Id and mark as unregistered
             simVar.ExternalId = 0;
             simVar.bIsRegistered = false;
         }
 
-        internal static void TriggerSimVar(SimVar simVar, string sData)
+        internal static void TriggerSimVar(SimVar simVar)
         {
-            if (!IsConnected || IsStarted == 0 || !simVar.bIsRegistered || !simVar.bWrite)
+            if (!IsConnected)
+            {
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" failed because Simulator is not connected");
                 return;
+            }
 
-            Logging.Log(LogLevel.Debug, LoggingSource.APP, () => $"SimClient.TriggerSimVar: iVarId = {simVar.iVarId} = {sData}");
+            if (!simVar.bIsRegistered)
+            {
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" failed because SimVar is already registered");
+                return;
+            }
+
+            if (!simVar.bWrite)
+            {
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" failed because SimVar is not Write");
+                return;
+            }
+
+            HR hr; // Variable to keep the result of WASimClient calls
 
             switch (simVar.cVarType)
             {
                 case 'A':
-                    break;
+                    {
+                        if ((hr = _WASimClient.setVariable(new(simVar.sVarName, simVar.sUnit, simVar.Index), simVar.dValue[0])) != HR.OK)
+                        {
+                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" failed with {hr}");
+                            return;
+                        }
+                        break;
+                    }
 
                 case 'L':
-                    break;
+                    {
+                        if ((hr = _WASimClient.setVariable(new((int)simVar.ExternalId), simVar.dValue[0])) != HR.OK)
+                        {
+                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" failed with {hr}");
+                            return;
+                        }
+                        break;
+                    }
 
                 case 'K':
-                    if (simVar.bCustomEvent)
                     {
-                        uint.TryParse(sData, out uint uData);
-                        _WASimClient.sendKeyEvent(simVar.ExternalId, uData);
+                        hr = _WASimClient.sendKeyEvent(simVar.ExternalId, (uint)simVar.dValue[0], (uint)simVar.dValue[1], (uint)simVar.dValue[2], (uint)simVar.dValue[3], (uint)simVar.dValue[4]);
+                        if (hr != HR.OK)
+                        {
+                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" failed with {hr}");
+                            return;
+                        }
+                        break;
                     }
-                    break;
 
                 case 'X':
-                    _WASimClient.transmitEvent((uint)simVar.iVarId);
-                    break;
+                    {
+                        if (simVar.bFormatedXVar)
+                        {
+                            string sFormated = string.Format(simVar.sVarName, simVar.dValue[0], simVar.dValue[1], simVar.dValue[2], simVar.dValue[3], simVar.dValue[4]);
+                            if ((hr = _WASimClient.executeCalculatorCode(sFormated)) != HR.OK)
+                            {
+                                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" failed with {hr}");
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            if ((hr = _WASimClient.transmitEvent((uint)simVar.iVarId)) != HR.OK)
+                            {
+                                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" failed with {hr}");
+                                return;
+                            }
+                        }
+                        break;
+                    }
             }
+
+            Logging.Log(LogLevel.Debug, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" = {simVar.dValue} succeeded");
         }
 
         internal static HR ExecuteCalculatorCode(string sCode, out string s)

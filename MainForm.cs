@@ -1,7 +1,9 @@
 using CockpitHardwareHUB_v2.Classes;
+using Microsoft.Win32;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 using WASimCommander.CLI.Enums;
 using Timer = System.Windows.Forms.Timer;
 
@@ -11,6 +13,9 @@ namespace CockpitHardwareHUB_v2
     {
         // Version
         private const string sVersion = "v0.01 - 01NOV2023";
+
+        // Store the silent mode option
+        private volatile bool _bSilentMode = false;
 
         // ListView controller objects for Variables and Logging
         private ListViewControllerVariables _ListViewControllerVariables;
@@ -54,6 +59,7 @@ namespace CockpitHardwareHUB_v2
 
             UpdateVirtualDeviceUIElements();
 
+            cbSilentMode.Checked = _bSilentMode;
             cbLogLevel.Text = Logging.sLogLevel;
             cbLogToFile.Checked = _bLogToFile;
             txtLogFileName.Text = FileLogger.sFileName;
@@ -78,9 +84,27 @@ namespace CockpitHardwareHUB_v2
             PropertyPool.UIUpdateVariable -= UIOnUpdateVariable;
         }
 
+        internal void UIOnUpdateConnectStatus(bool bIsConnected)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => UIOnUpdateConnectStatus(bIsConnected)));
+                return;
+            }
+
+            if (!bIsConnected)
+                _bVirtualDeviceConnected = false;
+
+            cbSilentMode.Enabled = !bIsConnected; ;
+            btnConnectMSFS.Text = (bIsConnected) ? "Disconnect" : "Connect";
+            grpConnect.Text = $"MSFS2020 : {(bIsConnected ? "CONNECTED" : "DISCONNECTED")}";
+
+            UpdateVirtualDeviceUIElements();
+        }
+
         internal void UI_UpdateStatistics()
         {
-            if (cbDevices.SelectedIndex == -1)
+            if (_bSilentMode || cbDevices.SelectedIndex == -1)
                 return;
 
             if (InvokeRequired)
@@ -98,6 +122,9 @@ namespace CockpitHardwareHUB_v2
 
         internal void UI_ResetStatistics()
         {
+            if (_bSilentMode)
+                return;
+
             if (InvokeRequired)
             {
                 Invoke(new Action(() => UI_ResetStatistics()));
@@ -111,6 +138,9 @@ namespace CockpitHardwareHUB_v2
 
         internal void UIOnUpdateLogging(LogLevel logLevel, LoggingSource loggingSource, string sLoggingMsg, UInt64 timestamp = 0)
         {
+            if (_bSilentMode)
+                return;
+
             if (InvokeRequired)
             {
                 BeginInvoke(new Action(() => UIOnUpdateLogging(logLevel, loggingSource, sLoggingMsg, timestamp)));
@@ -122,17 +152,22 @@ namespace CockpitHardwareHUB_v2
 
         private void UpdateVirtualDeviceUIElements()
         {
+            if (_bSilentMode)
+                return;
+
             if (SimClient.IsConnected)
             {
-                txtExecCalcCode.Enabled = true;
-                btnSendExecCalcCode.Enabled = true;
+                txtExecCalcCode.Enabled = !_bSilentMode;
+                btnSendExecCalcCode.Enabled = !_bSilentMode;
 
                 txtSimVar.Enabled = _bVirtualDeviceConnected;
                 if (!_bVirtualDeviceConnected)
                     txtSimVar.Text = "";
-                btnConnectVD.Enabled = true;
+                btnConnectVD.Enabled = !_bSilentMode;
                 btnConnectVD.Text = $"{(_bVirtualDeviceConnected ? "Disconnect" : "Connect")} Virtual Device";
                 btnAddProperty.Enabled = _bVirtualDeviceConnected;
+                btnSaveVirtualProperties.Enabled = _bVirtualDeviceConnected;
+                btnLoadVirtualProperties.Enabled = _bVirtualDeviceConnected;
                 btnSendToDevices.Enabled = _bVirtualDeviceConnected;
                 btnSendToMSFS.Enabled = _bVirtualDeviceConnected;
             }
@@ -148,30 +183,18 @@ namespace CockpitHardwareHUB_v2
                 btnConnectVD.Text = "Connect Virtual Device";
                 btnConnectVD.Enabled = false;
                 btnAddProperty.Enabled = false;
+                btnSaveVirtualProperties.Enabled = false;
+                btnLoadVirtualProperties.Enabled = false;
                 btnSendToDevices.Enabled = false;
                 btnSendToMSFS.Enabled = false;
             }
         }
 
-        internal void UIOnUpdateConnectStatus(bool bIsConnected)
-        {
-            if (InvokeRequired)
-            {
-                Invoke(new Action(() => UIOnUpdateConnectStatus(bIsConnected)));
-                return;
-            }
-
-            if (!bIsConnected)
-                _bVirtualDeviceConnected = false;
-
-            btnConnectMSFS.Text = (bIsConnected) ? "Disconnect" : "Connect";
-            grpConnect.Text = $"MSFS2020 : {(bIsConnected ? "CONNECTED" : "DISCONNECTED")}";
-
-            UpdateVirtualDeviceUIElements();
-        }
-
         internal void UIOnAddDevice(COMDevice device)
         {
+            if (_bSilentMode)
+                return;
+
             if (InvokeRequired)
             {
                 Invoke(new Action(() => UIOnAddDevice(device)));
@@ -187,6 +210,9 @@ namespace CockpitHardwareHUB_v2
 
         internal void UIOnRemoveDevice(COMDevice device)
         {
+            if (_bSilentMode)
+                return;
+
             if (InvokeRequired)
             {
                 Invoke(new Action(() => UIOnRemoveDevice(device)));
@@ -202,6 +228,9 @@ namespace CockpitHardwareHUB_v2
 
         private void UI_UpdateUSBDevices(bool bForceUpdatePropertyList = false)
         {
+            if (_bSilentMode)
+                return;
+
             if (cbDevices.Items.Count == 0 && _CurrentSelectedDevice != "")
             {
                 lblDeviceNameValue.Text = "";
@@ -243,7 +272,7 @@ namespace CockpitHardwareHUB_v2
 
         internal void UIOnUpdateVariable(UpdateVariable uv, SimVar simVar)
         {
-            if (simVar.iVarId == -1)
+            if (_bSilentMode || simVar.iVarId == -1)
                 return;
 
             if (InvokeRequired)
@@ -286,15 +315,27 @@ namespace CockpitHardwareHUB_v2
             UIOnUpdateConnectStatus(SimClient.IsConnected);
         }
 
+        private void cbSilentMode_CheckedChanged(object sender, EventArgs e)
+        {
+            MessageBox.Show("This option can only be changed when disconnected.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            _bSilentMode = cbSilentMode.Checked;
+        }
+
         // GroupBox Devices
         private void cbDevices_SelectionChangeCommitted(object sender, EventArgs e)
         {
+            if (_bSilentMode)
+                return;
+
             _Devices.TryGetValue(cbDevices.SelectedItem.ToString(), out var _SelectedDevice);
             UI_UpdateUSBDevices();
         }
 
         private void btnResetStatistics_Click(object sender, EventArgs e)
         {
+            if (_bSilentMode)
+                return;
+
             DeviceServer.ResetStatistics();
 
             UI_ResetStatistics();
@@ -362,6 +403,108 @@ namespace CockpitHardwareHUB_v2
             UI_UpdateUSBDevices(true);
         }
 
+        private void btnSaveVirtualProperties_Click(object sender, EventArgs e)
+        {
+            COMDevice device = DeviceServer.FindDeviceBasedOnPNPDeviceID("VIRTUAL");
+            if (device == null)
+            {
+                MessageBox.Show("VIRTUAL device seems not to exist. Something went wrong", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (device.Properties.Count == 0)
+            {
+                MessageBox.Show("VIRTUAL device has no properties to save.", "Nothing to save", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            //string defaultFileName = "VirtualDeviceProperties.txt";
+            string defaultDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+
+            SaveFileDialog saveFileDialog = new SaveFileDialog();
+            saveFileDialog.Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*";
+            saveFileDialog.Title = "Save Properties";
+            //saveFileDialog.FileName = defaultFileName;
+
+            // Retrieve the last used directory from the registry
+            RegistryKey key = Registry.CurrentUser.CreateSubKey("Software\\CockpitHardwareHUB");
+            string lastUsedDirectory = (string)key.GetValue("VirtualDeviceSaveFolder", defaultDirectory);
+
+            // Check if the directory exists
+            if (Directory.Exists(lastUsedDirectory))
+                saveFileDialog.InitialDirectory = lastUsedDirectory;
+            else
+                saveFileDialog.InitialDirectory = defaultDirectory;
+
+            if (saveFileDialog.ShowDialog() == DialogResult.OK)
+            {
+                try
+                {
+                    using (StreamWriter sw = new StreamWriter(saveFileDialog.FileName))
+                    {
+                        foreach (Property property in device.Properties)
+                            sw.WriteLine(property.sPropStr);
+                    }
+
+                    // Save the directory back to the registry
+                    key.SetValue("VirtualDeviceSaveFolder", Path.GetDirectoryName(saveFileDialog.FileName));
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"An error occurred while saving the file: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+
+            // Close the registry key
+            key.Close();
+        }
+
+        private async void btnLoadVirtualProperties_Click(object sender, EventArgs e)
+        {
+            COMDevice device = DeviceServer.FindDeviceBasedOnPNPDeviceID("VIRTUAL");
+            if (device == null)
+            {
+                MessageBox.Show("VIRTUAL device seems not to exist. Something went wrong", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            string defaultDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+
+            OpenFileDialog openFileDialog = new OpenFileDialog();
+            openFileDialog.Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*";
+            openFileDialog.Title = "Load Properties";
+
+            // Retrieve the last used directory from the registry
+            RegistryKey key = Registry.CurrentUser.OpenSubKey("Software\\CockpitHardwareHUB");
+            string lastUsedDirectory = (string)key.GetValue("VirtualDeviceSaveFolder", defaultDirectory);
+
+            // Check if the directory exists
+            if (Directory.Exists(lastUsedDirectory))
+                openFileDialog.InitialDirectory = lastUsedDirectory;
+            else
+                openFileDialog.InitialDirectory = defaultDirectory;
+
+            if (openFileDialog.ShowDialog() == DialogResult.OK)
+            {
+                try
+                {
+                    using (StreamReader sr = new StreamReader(openFileDialog.FileName))
+                    {
+                        string line;
+                        while ((line = await sr.ReadLineAsync()) != null)
+                        {
+                            await Task.Run(() => device.AddProperty(line));
+                        }
+                        UI_UpdateUSBDevices(true);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"An error occurred while loading the file: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
         private void SendSimVar(bool bRead)
         {
             if (txtSimVar.Text == "")
@@ -374,13 +517,15 @@ namespace CockpitHardwareHUB_v2
                 return;
             }
 
-            // Split the rxtSimVar input by '='
+            // Split the txtSimVar input by '='
             string[] parts = txtSimVar.Text.Split(new char[] { '=' }, 2);
+            string sCmd = parts[0];
+            string sData = parts.Length > 1 ? parts[1] : "";
 
             // Check if first part is a number
-            if (!int.TryParse(parts[0], out int iVarId))
+            if (!int.TryParse(sCmd, out int iVarId))
             {
-                MessageBox.Show($"[{parts[0]}] is not a valid number.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"[{sCmd}] is not a valid number.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
@@ -392,16 +537,16 @@ namespace CockpitHardwareHUB_v2
                 return;
             }
 
-            // If there is data available, check if it matches with the ValType of the SimVar
-            if (parts.Length > 1 && !simVar.CheckDataForSimVar(parts[1]))
-            {
-                MessageBox.Show($"SimVar [{iVarId}] requires data of type \"{simVar.sValType}\".", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
             if (bRead ? !simVar.bRead : !simVar.bWrite)
             {
                 MessageBox.Show($"SimVar with Id [{iVarId}] is not a \"{(bRead ? "Read" : "Write")}\" variable.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            // If there is data available, check if it matches with the ValType of the SimVar
+            if (!simVar.SetValueOfSimVar(sData))
+            {
+                MessageBox.Show($"SimVar [{iVarId}] requires data of type \"{simVar.ValType}\".", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
@@ -410,7 +555,7 @@ namespace CockpitHardwareHUB_v2
                 simVar.DispatchSimVar();
             else
                 // Send SimVar to MSFS
-                SimClient.TriggerSimVar(simVar, parts.Length > 1 ? parts[1] : "");
+                SimClient.TriggerSimVar(simVar);
         }
 
         private void btnSendToMSFS_Click(object sender, EventArgs e)
@@ -473,44 +618,44 @@ namespace CockpitHardwareHUB_v2
             _bLogToFile = cbLogToFile.Checked;
         }
     }
+}
 
-    internal class PropertyTextBox : TextBox
+internal class PropertyTextBox : TextBox
+{
+    private const int WM_SETREDRAW = 0x000B;
+    private const int WM_PAINT = 0x000F;
+    private bool _updating = false;
+
+    internal void BeginUpdate()
     {
-        private const int WM_SETREDRAW = 0x000B;
-        private const int WM_PAINT = 0x000F;
-        private bool _updating = false;
-
-        internal void BeginUpdate()
-        {
-            _updating = true;
-            SendMessage(this.Handle, WM_SETREDRAW, IntPtr.Zero, IntPtr.Zero);
-        }
-
-        internal void EndUpdate()
-        {
-            _updating = false;
-            SendMessage(this.Handle, WM_SETREDRAW, (IntPtr)1, IntPtr.Zero);
-            this.Invalidate();
-        }
-
-        protected override void WndProc(ref Message m)
-        {
-            // If we're updating, suppress WM_PAINT messages
-            if (_updating && m.Msg == WM_PAINT)
-                return;
-
-            base.WndProc(ref m);
-        }
-
-        [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        private static extern IntPtr SendMessage(IntPtr hWnd, int wMsg, IntPtr wParam, IntPtr lParam);
+        _updating = true;
+        SendMessage(this.Handle, WM_SETREDRAW, IntPtr.Zero, IntPtr.Zero);
     }
 
-    internal enum UpdateVariable
+    internal void EndUpdate()
     {
-        Add,
-        Remove,
-        Value,
-        Usage
+        _updating = false;
+        SendMessage(this.Handle, WM_SETREDRAW, (IntPtr)1, IntPtr.Zero);
+        this.Invalidate();
     }
+
+    protected override void WndProc(ref Message m)
+    {
+        // If we're updating, suppress WM_PAINT messages
+        if (_updating && m.Msg == WM_PAINT)
+            return;
+
+        base.WndProc(ref m);
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int wMsg, IntPtr wParam, IntPtr lParam);
+}
+
+internal enum UpdateVariable
+{
+    Add,
+    Remove,
+    Value,
+    Usage
 }

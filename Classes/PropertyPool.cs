@@ -87,7 +87,13 @@ namespace CockpitHardwareHUB_v2.Classes
                 return;
             }
 
-            SimClient.TriggerSimVar(simVar, sData);
+            if (!simVar.SetValueOfSimVar(sData))
+            {
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"PropertyPool.TriggerProperty: SimVar with ID {simVar.iVarId} requires data of type \"{simVar.ValType}\".");
+                return;
+            }
+
+            SimClient.TriggerSimVar(simVar);
         }
     }
 }

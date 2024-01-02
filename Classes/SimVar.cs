@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Globalization;
+using System.IO.Ports;
 using System.Text.RegularExpressions;
 using WASimCommander.CLI;
 using WASimCommander.CLI.Enums;
@@ -19,44 +20,84 @@ namespace CockpitHardwareHUB_v2.Classes
         KVarCanOnlyBeWrite,
         LVarUnsupportedValType,
         XVarUnsupportedValType,
-        XVarCanNotBeBothReadAndWrite
+        XVarCanNotBeBothReadAndWrite,
+        FormatSpecifiersNotAllowed
     }
 
-    internal enum SIMCONNECT_DATATYPE
+    internal enum ValueTypes : uint
     {
-        NONE,
-        INT32,
-        INT64,
-        FLOAT32,
-        FLOAT64,
-        STRING8,
-        STRING32,
-        STRING64,
-        STRING128,
-        STRING256,
-        STRING260,
-        STRINGV,
-        INITPOSITION,
-        MARKERSTATE,
-        WAYPOINT,
-        LATLONALT,
-        XYZ,
-        MAX
+        INT8 = WASimCommander.CLI.ValueTypes.DATA_TYPE_INT8,       // -1
+        INT16 = WASimCommander.CLI.ValueTypes.DATA_TYPE_INT16,     // -2
+        INT32 = WASimCommander.CLI.ValueTypes.DATA_TYPE_INT32,     // -3
+        INT64 = WASimCommander.CLI.ValueTypes.DATA_TYPE_INT64,     // -4
+        FLOAT32 = WASimCommander.CLI.ValueTypes.DATA_TYPE_FLOAT,   // -5
+        FLOAT64 = WASimCommander.CLI.ValueTypes.DATA_TYPE_DOUBLE,  // -6
+        STRING16 = 16,
+        STRING32 = 32,
+        STRING64 = 64,
+        STRING128 = 128,
+        STRING256 = 256,
+        VOID = 257,
+        INVALID = 512
     }
-
-    //public struct ValueTypes
-    //{
-    //    public const uint DATA_TYPE_INT8 = uint.MaxValue;
-    //    public const uint DATA_TYPE_INT16 = 4294967294u;
-    //    public const uint DATA_TYPE_INT32 = 4294967293u;
-    //    public const uint DATA_TYPE_INT64 = 4294967292u;
-    //    public const uint DATA_TYPE_FLOAT = 4294967291u;
-    //    public const uint DATA_TYPE_DOUBLE = 4294967290u;
-    //}
 
     internal class SimVar
     {
         private readonly UIUpdateVariable_Handler UIUpdateVariable;
+
+        private static readonly Dictionary<string, ValueTypes> _valTypeMap = new Dictionary<string, ValueTypes>
+        {
+            { "INT8", ValueTypes.INT8 },
+            { "INT16", ValueTypes.INT16 },
+            { "INT32", ValueTypes.INT32 },
+            { "INT64", ValueTypes.INT64 },
+            { "FLOAT32", ValueTypes.FLOAT32 },
+            { "FLOAT64", ValueTypes.FLOAT64 },
+            { "STRING16", ValueTypes.STRING16 },
+            { "STRING32", ValueTypes.STRING32 },
+            { "STRING64", ValueTypes.STRING64 },
+            { "STRING128", ValueTypes.STRING128 },
+            { "STRING256", ValueTypes.STRING256 },
+            { "VOID", ValueTypes.VOID },
+            { "INVALID", ValueTypes.INVALID }
+        };
+
+        private bool GetValType(string sValType)
+        {
+            sValType = sValType.ToUpper();
+
+            if (!_valTypeMap.TryGetValue(sValType, out ValueTypes valType))
+                return false;
+
+            _ValType = valType;
+            return true;
+        }
+
+        internal CalcResultType CRType
+        {
+            get
+            {
+                switch (_ValType)
+                {
+                    case ValueTypes.INT8:
+                    case ValueTypes.INT16:
+                    case ValueTypes.INT32:
+                        return CalcResultType.Integer;
+                    case ValueTypes.INT64:
+                    case ValueTypes.FLOAT32:
+                    case ValueTypes.FLOAT64:
+                        return CalcResultType.Double;
+                    case ValueTypes.STRING16:
+                    case ValueTypes.STRING32:
+                    case ValueTypes.STRING64:
+                    case ValueTypes.STRING128:
+                    case ValueTypes.STRING256:
+                        return CalcResultType.String;
+                    default:
+                        return CalcResultType.None;
+                }
+            }
+        }
 
         // creates unique VarId
         static private int _iNewVarId = 0;
@@ -71,12 +112,12 @@ namespace CockpitHardwareHUB_v2.Classes
         internal uint ExternalId { get; set; } = 0;
         internal bool bIsRegistered { get; set; } = false;
 
-        // This is only the variable name "AUTOPILOT ALTITUDE LOCK VAR:3"
+        // This is only the variable name "AUTOPILOT ALTITUDE LOCK VAR" (without eventual index)
         private string _sVarName;
         internal string sVarName => _sVarName;
 
-        private byte _bIndex;
-        internal byte bIndex => _bIndex;
+        private byte _Index;
+        internal byte Index => _Index;
 
         // True if we deal with a Custom Event such as A32NX.FCU_SPD_INC (has a '.')
         private bool _bCustomEvent = false;
@@ -92,31 +133,9 @@ namespace CockpitHardwareHUB_v2.Classes
 
         internal string sRW => $"{(_bRead ? "R" : "")}{(_bWrite ? "W" : "")}";
 
-        // ValType can be one of "INT32", "INT64", "FLOAT32", "FLOAT64", "STRING8", "STRING32", "STRING64", "STRING128", "STRING256" or "STRING260"
-        private SIMCONNECT_DATATYPE _scValType;
-        internal SIMCONNECT_DATATYPE scValType => _scValType;
-
-        private uint _ValType;
-        internal uint ValType => _ValType;
-
-        public string sValType { get {
-            switch (_ValType)
-            {
-                case ValueTypes.DATA_TYPE_INT8:
-                    return "int8";
-                case ValueTypes.DATA_TYPE_INT16:
-                    return "int16";
-                case ValueTypes.DATA_TYPE_INT32:
-                    return "int32";
-                case ValueTypes.DATA_TYPE_INT64:
-                    return "int64";
-                case ValueTypes.DATA_TYPE_FLOAT:
-                    return "float";
-                case ValueTypes.DATA_TYPE_DOUBLE:
-                    return "double";
-                default:
-                    return "unknown";
-            }}}
+        // ValType can be INT8, INT16, INT32, INT64, FLOAT, DOUBLE and VOID (=0)
+        private ValueTypes _ValType;
+        internal ValueTypes ValType => _ValType;
 
         // VarType can be one of 'A', 'L', 'X' or 'K'
         private char _cVarType;
@@ -126,10 +145,18 @@ namespace CockpitHardwareHUB_v2.Classes
         private string _sUnit;
         internal string sUnit => _sUnit;
 
+        internal int iUnitId = -1; // storage for unit id obtained by lookup during registration
+
+        // True if an X-Var contains one of the format specifiers '{0}, {1}, {2}, {3} and {4}' in sequence
+        private bool _bFormatedXVar = false;
+        internal bool bFormatedXVar => _bFormatedXVar;
+
+
         private PR _ParseResult;
         internal PR ParseResult => _ParseResult;
 
         internal string sValue { get; set; } = "";
+        internal double[] dValue = new double[5];
 
         // keep list of COMDevices that are interested in listening to a Read variable - value is translated iPropId
         private readonly Dictionary<COMDevice, int> _Listeners = new();
@@ -175,7 +202,7 @@ namespace CockpitHardwareHUB_v2.Classes
 
         public override string ToString()
         {
-            return $"'{cVarType}' {scValType} {(bRead ? "R" : "")}{(bWrite ? "W" : "")} sUnit = \"{sUnit}\" \"{sVarName}\"";
+            return sVarName;
         }
 
         internal void IncUsageCnt(COMDevice device, int iPropId)
@@ -221,46 +248,6 @@ namespace CockpitHardwareHUB_v2.Classes
             UIUpdateVariable?.Invoke(UpdateVariable.Usage, this);
 
             return _iUsageCnt;
-        }
-
-        //private char cValTypeLX
-        //{
-        //    get
-        //    {
-        //        switch (_scValType)
-        //        {
-        //            case SIMCONNECT_DATATYPE.INT32:
-        //            case SIMCONNECT_DATATYPE.INT64:
-        //                return 'I';
-        //            case SIMCONNECT_DATATYPE.FLOAT32:
-        //            case SIMCONNECT_DATATYPE.FLOAT64:
-        //                return 'F';
-        //            case SIMCONNECT_DATATYPE.STRING8:
-        //            case SIMCONNECT_DATATYPE.STRING32:
-        //            case SIMCONNECT_DATATYPE.STRING64:
-        //            case SIMCONNECT_DATATYPE.STRING128:
-        //            case SIMCONNECT_DATATYPE.STRING256:
-        //            case SIMCONNECT_DATATYPE.STRING260:
-        //                return 'S';
-        //            default:
-        //                return 'V';
-        //        }
-        //    }
-        //}
-
-        private char cValAccessLX
-        {
-            get
-            {
-                if (_bRead && _bWrite)
-                    return 'B';
-                else if (_bRead)
-                    return 'R';
-                else if (_bWrite)
-                    return 'W';
-                else
-                    return 'N';
-            }
         }
 
         // Dictionaries to keep SimVars by name and by id
@@ -318,6 +305,24 @@ namespace CockpitHardwareHUB_v2.Classes
             return simVar; // If not found, result will be default(SimVar), which is null
         }
 
+        public bool IsValidFormatSequence()
+        {
+            string[] patterns = { "{0}", "{1}", "{2}", "{3}", "{4}" };
+            bool previousFound = true;
+
+            foreach (string pattern in patterns)
+            {
+                bool currentFound = sVarName.Contains(pattern);
+                if (currentFound && !previousFound)
+                {
+                    return false; // Found a higher pattern without finding all lower ones
+                }
+                previousFound = currentFound;
+            }
+
+            return sVarName.Contains(patterns[0]); // The string must contain at least {0} to be valid
+        }
+
         internal SimVar(string sPropName, UIUpdateVariable_Handler UIUpdateVariable)
         {
             // Keep the original property name for comparison reasons
@@ -328,7 +333,7 @@ namespace CockpitHardwareHUB_v2.Classes
             if (new Regex(@"^VOID_[ALKX]:.+$", RegexOptions.IgnoreCase).IsMatch(sPropName))
             {
                 // VOID_A:Command[,Unit]
-                _scValType = SIMCONNECT_DATATYPE.NONE;
+                _ValType = ValueTypes.VOID;
                 _bRead = false;
                 _bWrite = true;
             }
@@ -383,125 +388,73 @@ namespace CockpitHardwareHUB_v2.Classes
             iColon = _sVarName.LastIndexOf(":");
             if (iColon != -1)
             {
-                if (!byte.TryParse(_sVarName.Substring(iColon + 1), out _bIndex))
-                    _bIndex = 0;
+                if (!byte.TryParse(_sVarName.Substring(iColon + 1), out _Index))
+                    _Index = 0;
                 else
                     _sVarName = _sVarName.Remove(iColon);
             }
 
             // check if variable is Custom Event
-            _bCustomEvent = _sVarName.IndexOf('.') != -1;
+            _bCustomEvent = _sVarName.Contains('.');
 
             // A and L variables require a Unit
-            if (((_cVarType == 'A') || (_cVarType == 'L')) && (_sUnit == ""))
+            if (_cVarType == 'A' && _sUnit == "")
             {
                 _ParseResult = PR.MissingUnit;
                 return;
             }
 
-            // K variables can only be INT32 or VOID
-            SIMCONNECT_DATATYPE[] KTypes = {
-                SIMCONNECT_DATATYPE.INT32,
-                SIMCONNECT_DATATYPE.NONE
+            // A and L variables can not be STRING256
+            if ((_cVarType == 'A' || _cVarType == 'L') && _ValType == ValueTypes.STRING256)
+            {
+                _ParseResult = PR.KVarUnsupportedValType;
+                return;
+            }
+
+            // K variables can only be INT8, INT16, INT32 or VOID
+            ValueTypes[] KTypes = {
+                ValueTypes.INT8,
+                ValueTypes.INT16,
+                ValueTypes.INT32,
+                ValueTypes.VOID
             };
-            if (_cVarType == 'K' && !Array.Exists(KTypes, x => x == _scValType))
+            if (_cVarType == 'K' && !Array.Exists(KTypes, x => x == _ValType))
             {
                 _ParseResult = PR.KVarUnsupportedValType;
                 return;
             }
 
             // K variables can only be write
-            if (_cVarType == 'K' && cValAccessLX != 'W')
+            if (_cVarType == 'K' && !_bWrite)
             {
                 _ParseResult = PR.KVarCanOnlyBeWrite;
                 return;
             }
 
-            // L variables can only be INT32, FLOAT64 or VOID
-            SIMCONNECT_DATATYPE[] LTypes = {
-                SIMCONNECT_DATATYPE.INT32,
-                SIMCONNECT_DATATYPE.FLOAT64,
-                SIMCONNECT_DATATYPE.NONE
-            };
-            if (_cVarType == 'L' && !Array.Exists(LTypes, x => x == _scValType))
-            {
-                _ParseResult = PR.LVarUnsupportedValType;
-                return;
-            }
-
-            // X variables can only be INT32, FLOAT64, STRING256 or VOID
-            SIMCONNECT_DATATYPE[] XTypes = {
-                SIMCONNECT_DATATYPE.INT32,
-                SIMCONNECT_DATATYPE.FLOAT64,
-                SIMCONNECT_DATATYPE.STRING256,
-                SIMCONNECT_DATATYPE.NONE
-            };
-            if (_cVarType == 'X' && !Array.Exists(XTypes, x => x == _scValType))
-            {
-                _ParseResult = PR.XVarUnsupportedValType;
-                return;
-            }
-
             // X variables can never be both Read and Write
-            if (_cVarType == 'X' && cValAccessLX == 'B')
+            if (_cVarType == 'X' && _bRead && _bWrite)
             {
                 _ParseResult = PR.XVarCanNotBeBothReadAndWrite;
                 return;
             }
 
+            // Check if X variable contains the format specifiers {0}, {1}, {2}, {3} or {4} in sequence
+            ValueTypes[] XTypes = {
+                ValueTypes.INT8,
+                ValueTypes.INT16,
+                ValueTypes.INT32,
+                ValueTypes.FLOAT32,
+                ValueTypes.FLOAT64
+            };
+            _bFormatedXVar = IsValidFormatSequence();
+            if (_bFormatedXVar && !(_cVarType == 'X' && _bWrite && Array.Exists(XTypes, x => x == _ValType)))
+            {
+                _ParseResult = PR.FormatSpecifiersNotAllowed;
+                return;
+            }
+
             _iVarId = Interlocked.Increment(ref _iNewVarId); ;
             _ParseResult = PR.Ok;
-        }
-
-        private bool GetValType(string sValType)
-        {
-            switch (sValType.ToUpper())
-            {
-                case "INT32":
-                    _scValType = SIMCONNECT_DATATYPE.INT32;
-                    _ValType = ValueTypes.DATA_TYPE_INT32;
-                    return true;
-                case "INT64":
-                    _scValType = SIMCONNECT_DATATYPE.INT64;
-                    _ValType = ValueTypes.DATA_TYPE_INT64;
-                    return true;
-                case "FLOAT32":
-                    _scValType = SIMCONNECT_DATATYPE.FLOAT32;
-                    _ValType = ValueTypes.DATA_TYPE_FLOAT;
-                    return true;
-                case "FLOAT64":
-                    _scValType = SIMCONNECT_DATATYPE.FLOAT64;
-                    _ValType = ValueTypes.DATA_TYPE_DOUBLE;
-                    return true;
-                case "STRING8":
-                    _scValType = SIMCONNECT_DATATYPE.STRING8;
-                    _ValType = 0;
-                    return true;
-                case "STRING32":
-                    _scValType = SIMCONNECT_DATATYPE.STRING32;
-                    _ValType = 0;
-                    return true;
-                case "STRING64":
-                    _scValType = SIMCONNECT_DATATYPE.STRING64;
-                    _ValType = 0;
-                    return true;
-                case "STRING128":
-                    _scValType = SIMCONNECT_DATATYPE.STRING128;
-                    _ValType = 0;
-                    return true;
-                case "STRING256":
-                    _scValType = SIMCONNECT_DATATYPE.STRING256;
-                    _ValType = 0;
-                    return true;
-                case "STRING260":
-                    _scValType = SIMCONNECT_DATATYPE.STRING260;
-                    _ValType = 0;
-                    return true;
-                default:
-                    _scValType = SIMCONNECT_DATATYPE.NONE;
-                    _ValType = 0;
-                    return false;
-            }
         }
 
         internal void DispatchSimVar()
@@ -518,81 +471,111 @@ namespace CockpitHardwareHUB_v2.Classes
             UIUpdateVariable?.Invoke(UpdateVariable.Value, this);
         }
 
-        internal bool ConvertDataForSimVar(DataRequestRecord dr)
+        internal bool ConvertDataRequestRecordToString(DataRequestRecord dr)
         {
-            bool bConversionSucceeded;
+            bool bConversionSucceeded = false;
 
             switch (ValType)
             {
-                case ValueTypes.DATA_TYPE_INT8:
+                case ValueTypes.INT8:
                     if (bConversionSucceeded = dr.tryConvert(out byte i8Val))
                         sValue = i8Val.ToString();
                     break;
-                case ValueTypes.DATA_TYPE_INT32:
+                case ValueTypes.INT16:
+                    if (bConversionSucceeded = dr.tryConvert(out short i16Val))
+                        sValue = i16Val.ToString();
+                    break;
+                case ValueTypes.INT32:
                     if (bConversionSucceeded = dr.tryConvert(out int i32Val))
                         sValue = i32Val.ToString();
                     break;
-                case ValueTypes.DATA_TYPE_INT64:
+                case ValueTypes.INT64:
                     if (bConversionSucceeded = dr.tryConvert(out long i64Val))
                         sValue = i64Val.ToString();
                     break;
-                case ValueTypes.DATA_TYPE_FLOAT:
+                case ValueTypes.FLOAT32:
                     if (bConversionSucceeded = dr.tryConvert(out float fVal))
                         sValue = fVal.ToString("0.000", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
                     break;
-                case ValueTypes.DATA_TYPE_DOUBLE:
+                case ValueTypes.FLOAT64:
                     if (bConversionSucceeded = dr.tryConvert(out double dVal))
                         sValue = dVal.ToString("0.000", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
                     break;
-                default:
+                case ValueTypes.STRING256:
                     if (bConversionSucceeded = dr.tryConvert(out string sVal))
                         sValue = sVal;
                     break;
             }
 
+            Array.Clear(dValue, 0, dValue.Length);
             if (bConversionSucceeded)
-                Logging.Log(LogLevel.Debug, LoggingSource.APP, () => $"SimVar.ConvertDataForSimVar: {dr.requestId} \"{dr.nameOrCode}\" has value \"{sValue}\"");
+                dValue[0] = dr.tryConvert(out double d) ? d : 0.0;
+
+            if (bConversionSucceeded)
+                Logging.Log(LogLevel.Debug, LoggingSource.APP, () => $"SimVar.ConvertDataRequestRecordToString: {dr.requestId} \"{dr.nameOrCode}\" has value \"{sValue}\"");
             else
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimVar.ConvertDataForSimVar: {dr.requestId} \"{dr.nameOrCode}\" - Conversion failed");
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimVar.ConvertDataRequestRecordToString: {dr.requestId} \"{dr.nameOrCode}\" - Conversion failed");
 
             return bConversionSucceeded;
         }
 
-        internal bool CheckDataForSimVar(string sData)
+        internal bool SetValueOfSimVar(string sData)
         {
-            bool bConversionSucceeded;
+            Array.Clear(dValue, 0, dValue.Length);
+            sValue = "0";
+            if (sData == "")
+                return true;
 
-            switch (ValType)
+            // split the ';'-separated data in maximum 5 individual elements
+            string[] sEachData = sData.Split(';',5);
+            bool bConversionSucceeded = false;
+
+            for (int i = 0; i < sEachData.Length; i++)
             {
-                case ValueTypes.DATA_TYPE_INT8:
-                    if (bConversionSucceeded = byte.TryParse(sData, out byte _))
-                        sValue = sData;
-                    break;
-                case ValueTypes.DATA_TYPE_INT32:
-                    if (bConversionSucceeded = int.TryParse(sData, out int _))
-                        sValue = sData;
-                    break;
-                case ValueTypes.DATA_TYPE_INT64:
-                    if (bConversionSucceeded = long.TryParse(sData, out long _))
-                        sValue = sData;
-                    break;
-                case ValueTypes.DATA_TYPE_FLOAT:
-                    if (bConversionSucceeded = float.TryParse(sData, NumberStyles.Any, CultureInfo.GetCultureInfo("en-US"), out float fVal))
-                        sValue = fVal.ToString("0.000", CultureInfo.GetCultureInfo("en-US"));
+                switch (ValType)
+                {
+                    case ValueTypes.INT8:
+                        if (bConversionSucceeded = byte.TryParse(sEachData[i], out byte i8))
+                            dValue[i] = i8;
                         break;
-                case ValueTypes.DATA_TYPE_DOUBLE:
-                    if (bConversionSucceeded = double.TryParse(sData, NumberStyles.Any, CultureInfo.GetCultureInfo("en-US"), out double dVal))
-                        sValue = dVal.ToString("0.000", CultureInfo.GetCultureInfo("en-US"));
-                    break;
-                default:
-                    bConversionSucceeded = true;
-                    break;
+                    case ValueTypes.INT16:
+                        if (bConversionSucceeded = short.TryParse(sEachData[i], out short i16))
+                            dValue[i] = i16;
+                        break;
+                    case ValueTypes.INT32:
+                        if (bConversionSucceeded = int.TryParse(sEachData[i], out int i32))
+                            dValue[i] = i32;
+                        break;
+                    case ValueTypes.INT64:
+                        if (bConversionSucceeded = long.TryParse(sEachData[i], out long i64))
+                            dValue[i] = i64;
+                        break;
+                    case ValueTypes.FLOAT32:
+                        if (bConversionSucceeded = float.TryParse(sEachData[i], NumberStyles.Any, CultureInfo.GetCultureInfo("en-US"), out float f))
+                            dValue[i] = f;
+                        break;
+                    case ValueTypes.FLOAT64:
+                        if (bConversionSucceeded = double.TryParse(sEachData[i], NumberStyles.Any, CultureInfo.GetCultureInfo("en-US"), out double d))
+                            dValue[i] = d;
+                        break;
+                    case ValueTypes.VOID:
+                        if (bConversionSucceeded = int.TryParse(sEachData[i], out int i32void))
+                            dValue[i] = i32void;
+                        break;
+                    case ValueTypes.STRING256:
+                        bConversionSucceeded = false;
+                        break;
+                }
             }
 
             if (bConversionSucceeded)
-                Logging.Log(LogLevel.Debug, LoggingSource.APP, () => $"SimVar.CheckDataForSimVar: {sData} is a valid {ValType}");
+                Logging.Log(LogLevel.Debug, LoggingSource.APP, () => $"SimVar.SetValueOfSimVar: \"{sData}\" contains all valid [{ValType}]");
             else
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimVar.CheckDataForSimVar: Value {sData} is not a valid {ValType}");
+            {
+                Array.Clear(dValue, 0, dValue.Length);
+                sValue = "0";
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimVar.SetValueOfSimVar: Value \"{sData}\" contains not all valid [{ValType}]");
+            }
 
             return bConversionSucceeded;
         }

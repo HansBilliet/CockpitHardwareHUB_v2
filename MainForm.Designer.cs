@@ -63,6 +63,8 @@
             txtVariablesFilter = new TextBox();
             lblVariablesFilter = new Label();
             grpVirtualDevice = new GroupBox();
+            btnLoadVirtualProperties = new Button();
+            btnSaveVirtualProperties = new Button();
             btnSendToDevices = new Button();
             btnSendToMSFS = new Button();
             btnAddProperty = new Button();
@@ -73,6 +75,7 @@
             lblExecCalcCodeResult = new Label();
             btnSendExecCalcCode = new Button();
             txtExecCalcCode = new TextBox();
+            cbSilentMode = new CheckBox();
             grpConnect.SuspendLayout();
             grpLogging.SuspendLayout();
             grpDevices.SuspendLayout();
@@ -83,12 +86,13 @@
             // 
             // grpConnect
             // 
+            grpConnect.Controls.Add(cbSilentMode);
             grpConnect.Controls.Add(btnConnectMSFS);
             grpConnect.Location = new Point(13, 10);
             grpConnect.Margin = new Padding(4, 3, 4, 3);
             grpConnect.Name = "grpConnect";
             grpConnect.Padding = new Padding(4, 3, 4, 3);
-            grpConnect.Size = new Size(285, 48);
+            grpConnect.Size = new Size(285, 81);
             grpConnect.TabIndex = 0;
             grpConnect.TabStop = false;
             grpConnect.Text = "MSFS2020 : DISCONNECTED";
@@ -224,11 +228,11 @@
             grpDevices.Controls.Add(lblProcessorType);
             grpDevices.Controls.Add(lblDeviceName);
             grpDevices.Controls.Add(cbDevices);
-            grpDevices.Location = new Point(13, 68);
+            grpDevices.Location = new Point(13, 97);
             grpDevices.Margin = new Padding(4, 3, 4, 3);
             grpDevices.Name = "grpDevices";
             grpDevices.Padding = new Padding(4, 3, 4, 3);
-            grpDevices.Size = new Size(285, 586);
+            grpDevices.Size = new Size(285, 557);
             grpDevices.TabIndex = 2;
             grpDevices.TabStop = false;
             grpDevices.Text = "USB Devices";
@@ -253,7 +257,7 @@
             txtProperties.Name = "txtProperties";
             txtProperties.ReadOnly = true;
             txtProperties.ScrollBars = ScrollBars.Both;
-            txtProperties.Size = new Size(272, 355);
+            txtProperties.Size = new Size(272, 326);
             txtProperties.TabIndex = 14;
             txtProperties.WordWrap = false;
             // 
@@ -462,6 +466,8 @@
             // 
             // grpVirtualDevice
             // 
+            grpVirtualDevice.Controls.Add(btnLoadVirtualProperties);
+            grpVirtualDevice.Controls.Add(btnSaveVirtualProperties);
             grpVirtualDevice.Controls.Add(btnSendToDevices);
             grpVirtualDevice.Controls.Add(btnSendToMSFS);
             grpVirtualDevice.Controls.Add(btnAddProperty);
@@ -473,6 +479,26 @@
             grpVirtualDevice.TabIndex = 4;
             grpVirtualDevice.TabStop = false;
             grpVirtualDevice.Text = "Virtual Device";
+            // 
+            // btnLoadVirtualProperties
+            // 
+            btnLoadVirtualProperties.Location = new Point(414, 51);
+            btnLoadVirtualProperties.Name = "btnLoadVirtualProperties";
+            btnLoadVirtualProperties.Size = new Size(75, 23);
+            btnLoadVirtualProperties.TabIndex = 7;
+            btnLoadVirtualProperties.Text = "Load";
+            btnLoadVirtualProperties.UseVisualStyleBackColor = true;
+            btnLoadVirtualProperties.Click += btnLoadVirtualProperties_Click;
+            // 
+            // btnSaveVirtualProperties
+            // 
+            btnSaveVirtualProperties.Location = new Point(333, 51);
+            btnSaveVirtualProperties.Name = "btnSaveVirtualProperties";
+            btnSaveVirtualProperties.Size = new Size(75, 23);
+            btnSaveVirtualProperties.TabIndex = 6;
+            btnSaveVirtualProperties.Text = "Save";
+            btnSaveVirtualProperties.UseVisualStyleBackColor = true;
+            btnSaveVirtualProperties.Click += btnSaveVirtualProperties_Click;
             // 
             // btnSendToDevices
             // 
@@ -568,6 +594,17 @@
             txtExecCalcCode.Size = new Size(652, 23);
             txtExecCalcCode.TabIndex = 0;
             // 
+            // cbSilentMode
+            // 
+            cbSilentMode.AutoSize = true;
+            cbSilentMode.Location = new Point(8, 47);
+            cbSilentMode.Name = "cbSilentMode";
+            cbSilentMode.Size = new Size(89, 19);
+            cbSilentMode.TabIndex = 1;
+            cbSilentMode.Text = "Silent mode";
+            cbSilentMode.UseVisualStyleBackColor = true;
+            cbSilentMode.CheckedChanged += cbSilentMode_CheckedChanged;
+            // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -589,6 +626,7 @@
             FormClosed += MainForm_FormClosed;
             Load += MainForm_Load;
             grpConnect.ResumeLayout(false);
+            grpConnect.PerformLayout();
             grpLogging.ResumeLayout(false);
             grpLogging.PerformLayout();
             grpDevices.ResumeLayout(false);
@@ -649,5 +687,8 @@
         private TextBox txtExecCalcCode;
         private TextBox txtExecCalcCodeResult;
         private Label lblExecCalcCodeResult;
+        private Button btnLoadVirtualProperties;
+        private Button btnSaveVirtualProperties;
+        private CheckBox cbSilentMode;
     }
 }
