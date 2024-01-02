@@ -1,9 +1,7 @@
 using CockpitHardwareHUB_v2.Classes;
 using Microsoft.Win32;
 using System.Collections.Concurrent;
-using System.Globalization;
 using System.Runtime.InteropServices;
-using System.Windows.Forms;
 using WASimCommander.CLI.Enums;
 using Timer = System.Windows.Forms.Timer;
 

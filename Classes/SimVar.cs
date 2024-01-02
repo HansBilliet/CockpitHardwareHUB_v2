@@ -1,8 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Globalization;
-using System.IO.Ports;
 using System.Text.RegularExpressions;
-using WASimCommander.CLI;
 using WASimCommander.CLI.Enums;
 using WASimCommander.CLI.Structs;
 using static CockpitHardwareHUB_v2.Classes.PropertyPool;
@@ -219,7 +217,7 @@ namespace CockpitHardwareHUB_v2.Classes
                 catch (ArgumentException)
                 {
                     // This should never happen. If it does, it means that a device has registered the same read variable more than once.
-                    Logging.Log(LogLevel.Error, LoggingSource.PRP, () => $"SimVar.IncUsageCnt: Listener {device} already exists for sPropStr {sPropStr}.");
+                    Logging.Log(LogLevel.Error, LoggingSource.VAR, () => $"SimVar.IncUsageCnt: {device} already listens for sPropStr \"{sPropStr}\"");
                 }
             }
             // Update the Usage Cnt and Value in the UI
@@ -232,7 +230,7 @@ namespace CockpitHardwareHUB_v2.Classes
             {
                 if (_iUsageCnt == 0)
                 {
-                    Logging.Log(LogLevel.Error, LoggingSource.PRP, () => $"SimVar.DecUsageCnt: _iUsageCnt was already 0.");
+                    Logging.Log(LogLevel.Error, LoggingSource.VAR, () => $"SimVar.DecUsageCnt: _iUsageCnt was already 0 for \"{sPropStr}\"");
                     return -1;
                 }
 
@@ -241,7 +239,7 @@ namespace CockpitHardwareHUB_v2.Classes
 
                 if (_bRead && !_Listeners.Remove(device))
                     // This should never happen. If it does, it means that we try to remove a listener that isn't registered.
-                    Logging.Log(LogLevel.Error, LoggingSource.PRP, () => $"SimVar.DecUsageCnt: Listener {device} doesn't exist for sPropStr {sPropStr}.");
+                    Logging.Log(LogLevel.Error, LoggingSource.VAR, () => $"SimVar.DecUsageCnt: {device} doesn't listen for sPropStr \"{sPropStr}\"");
             }
 
             // Update the Usage Cnt in the UI
@@ -263,7 +261,7 @@ namespace CockpitHardwareHUB_v2.Classes
             {
                 if (_SimVarsByName.ContainsKey(sPropStr) || _SimVarsById.ContainsKey(iVarId))
                 {
-                    Logging.Log(LogLevel.Error, LoggingSource.PRP, () => $"PropertyPool.AddSimVar: simVar {sPropStr} with iVarId {iVarId} already exists");
+                    Logging.Log(LogLevel.Error, LoggingSource.VAR, () => $"PropertyPool.AddSimVar: SimVar \"{sPropStr}\" with iVarId {iVarId} already exists");
                     return false;
                 }
 
@@ -512,9 +510,9 @@ namespace CockpitHardwareHUB_v2.Classes
                 dValue[0] = dr.tryConvert(out double d) ? d : 0.0;
 
             if (bConversionSucceeded)
-                Logging.Log(LogLevel.Debug, LoggingSource.APP, () => $"SimVar.ConvertDataRequestRecordToString: {dr.requestId} \"{dr.nameOrCode}\" has value \"{sValue}\"");
+                Logging.Log(LogLevel.Debug, LoggingSource.VAR, () => $"SimVar.ConvertDataRequestRecordToString: {dr.requestId} \"{dr.nameOrCode}\" has value \"{sValue}\"");
             else
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimVar.ConvertDataRequestRecordToString: {dr.requestId} \"{dr.nameOrCode}\" - Conversion failed");
+                Logging.Log(LogLevel.Error, LoggingSource.VAR, () => $"SimVar.ConvertDataRequestRecordToString: {dr.requestId} \"{dr.nameOrCode}\" - Conversion failed");
 
             return bConversionSucceeded;
         }
@@ -569,12 +567,12 @@ namespace CockpitHardwareHUB_v2.Classes
             }
 
             if (bConversionSucceeded)
-                Logging.Log(LogLevel.Debug, LoggingSource.APP, () => $"SimVar.SetValueOfSimVar: \"{sData}\" contains all valid [{ValType}]");
+                Logging.Log(LogLevel.Debug, LoggingSource.VAR, () => $"SimVar.SetValueOfSimVar: \"{sData}\" contains all valid [{ValType}] types");
             else
             {
                 Array.Clear(dValue, 0, dValue.Length);
                 sValue = "0";
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimVar.SetValueOfSimVar: Value \"{sData}\" contains not all valid [{ValType}]");
+                Logging.Log(LogLevel.Error, LoggingSource.VAR, () => $"SimVar.SetValueOfSimVar: \"{sData}\" contains not all valid [{ValType}] types");
             }
 
             return bConversionSucceeded;

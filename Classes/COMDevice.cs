@@ -148,7 +148,7 @@ namespace CockpitHardwareHUB_v2.Classes
 
         public override string ToString()
         {
-            return $"{UniqueName}";
+            return UniqueName;
         }
 
         internal bool Open()
@@ -172,21 +172,20 @@ namespace CockpitHardwareHUB_v2.Classes
                     // This could happen if a port is disconnected and reconnected shortly after - seems that the below method works to recover from that
                     _serialPort.Close();
                     Thread.Sleep(500);
-                    //Logging.Log(LogLevel.Info, LoggingSource.DEV, () => $"COMDevice.Open {PortName}: UnauthorizedAccessException attempt {++iRetryCount}/3");
                     Logging.Log(LogLevel.Info, LoggingSource.DEV, () => $"COMDevice.Open {PortName}: UnauthorizedAccessException attempt {++iRetryCount}/3");
                 }
                 catch (TimeoutException ex)
                 {
                     if (_serialPort.IsOpen)
                         _serialPort.Close();
-                    Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.Open {PortName}: TimeoutException {ex}");
+                    Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.Open {PortName}: TimeoutException {ex.Message}");
                     return false;
                 }
                 catch (Exception ex)
                 {
                     if (_serialPort.IsOpen)
                         _serialPort.Close();
-                    Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.Open {PortName}: Exception {ex}");
+                    Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.Open {PortName}: Exception {ex.Message}");
                     return false;
                 }
             }
@@ -212,7 +211,7 @@ namespace CockpitHardwareHUB_v2.Classes
             }
             catch (Exception ex)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.Close {PortName}: Exception  {ex}");
+                Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.Close {PortName}: Exception {ex.Message}");
                 return false;
             }
         }
@@ -259,7 +258,6 @@ namespace CockpitHardwareHUB_v2.Classes
                 _serialPort.Write("IDENT\n");
                 _DeviceName = _serialPort.ReadLine();
                 _ProcessorType = _serialPort.ReadLine();
-                //Logging.Log(LogLevel.Info, LoggingSource.DEV, () => $"COMDevice.GetProperties: {this} IDENT = \"{_DeviceName}\" - \"{_ProcessorType}\"");
                 Logging.Log(LogLevel.Info, LoggingSource.DEV, () => $"COMDevice.GetProperties: {this} IDENT = \"{_DeviceName}\" - \"{_ProcessorType}\"");
 
                 // get properties to register
@@ -292,12 +290,12 @@ namespace CockpitHardwareHUB_v2.Classes
             }
             catch (TimeoutException ex)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.GetProperties: {this} TimeoutException {ex}");
+                Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.GetProperties: {this} TimeoutException {ex.Message}");
                 return false;
             }
             catch (Exception ex)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.GetProperties: {this} Exception {ex}");
+                Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.GetProperties: {this} Exception {ex.Message}");
                 return false;
             }
         }
@@ -319,7 +317,7 @@ namespace CockpitHardwareHUB_v2.Classes
         {
             if (_bVirtualDevice)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.StartPumps {PortName}: Operation not allowed for Virtual Device");
+                Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.StartPumps: Operation not allowed for Virtual Device");
                 return;
             }
 
@@ -348,7 +346,7 @@ namespace CockpitHardwareHUB_v2.Classes
         {
             if (_bVirtualDevice)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.StopPumps {PortName}: Operation not allowed for Virtual Device");
+                Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.StopPumps: Operation not allowed for Virtual Device");
                 return;
             }
 
@@ -387,7 +385,7 @@ namespace CockpitHardwareHUB_v2.Classes
 
             if (_bVirtualDevice)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.RxPump {PortName}: Operation not allowed for Virtual Device");
+                Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.RxPump: Operation not allowed for Virtual Device");
                 return;
             }
 
@@ -416,8 +414,8 @@ namespace CockpitHardwareHUB_v2.Classes
                                 _mreAck.Set();
                             else if ((sbCmd.Length >= 4) && (sbCmd[3] == '=') && int.TryParse(sbCmd.ToString().AsSpan(0, 3), out int iPropId))
                             {
-                                // Command received with format 'NNN=...'. Check if it is a valid Property, and if it has its matching iVarId
-                                Logging.Log(LogLevel.Debug, LoggingSource.DEV, () => $"COMDevice.RxPump: {this} Command \"{sbCmd}\"");
+                                // Command received with format 'NNN=...'.
+                                Logging.Log(LogLevel.Debug, LoggingSource.DEV, () => $"COMDevice.RxPump: {this} Command = \"{sbCmd}\"");
                                 if (!ct.IsCancellationRequested)
                                 {
                                     PropertyPool.TriggerProperty(_Properties[iPropId-1].iVarId, sbCmd.ToString().AsSpan(4).ToString());
@@ -438,7 +436,7 @@ namespace CockpitHardwareHUB_v2.Classes
                 }
                 catch (Exception ex)
                 {
-                    Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.RxPump: {this} Exception {ex}");
+                    Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.RxPump: {this} Exception {ex.Message}");
                 }
             }
             Logging.Log(LogLevel.Info, LoggingSource.DEV, () => $"COMDevice.RxPump: {this} RxPump stopped");
@@ -450,7 +448,7 @@ namespace CockpitHardwareHUB_v2.Classes
 
             if (_bVirtualDevice)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.TxPump {PortName}: Operation not allowed for Virtual Device");
+                Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.TxPump: Operation not allowed for Virtual Device");
                 return;
             }
 
@@ -465,7 +463,7 @@ namespace CockpitHardwareHUB_v2.Classes
 
                     // blocking take
                     string sCmd = _TxPumpQueue.Take(ct);
-                    Logging.Log(LogLevel.Debug, LoggingSource.DEV, () => $"COMDevice.TxPump: {this} Command \"{sCmd}\"");
+                    Logging.Log(LogLevel.Debug, LoggingSource.DEV, () => $"COMDevice.TxPump: {this} Command = \"{sCmd}\"");
 
                     byte[] buffer = Encoding.ASCII.GetBytes($"{sCmd}\n");
 
@@ -501,7 +499,7 @@ namespace CockpitHardwareHUB_v2.Classes
                 }
                 catch (Exception ex)
                 {
-                    Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.TxPump: {this} Exception {ex}");
+                    Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.TxPump: {this} Exception {ex.Message}");
                 }
             }
             Logging.Log(LogLevel.Info, LoggingSource.DEV, () => $"COMDevice.TxPump: {this} TxPump stopped");
@@ -510,8 +508,8 @@ namespace CockpitHardwareHUB_v2.Classes
         internal void AddCmdToTxPumpQueue(int iPropId, string sData)
         {
             string sCmd = $"{iPropId:D03}={sData}";
+            Logging.Log(LogLevel.Debug, LoggingSource.DEV, () => $"COMDevice.AddCmdToTxPumpQueue: {this} \"{sCmd}\"");
             _TxPumpQueue.Add(sCmd);
-            Logging.Log(LogLevel.Debug, LoggingSource.DEV, () => $"COMDevice.AddCmdToTxPumpQueue: {this} \"{sCmd}\""); // Is this thread safe, and does it need to be?
         }
     }
 }

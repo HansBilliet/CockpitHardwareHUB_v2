@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using WASimCommander.CLI.Enums;
+﻿using WASimCommander.CLI.Enums;
 
 namespace CockpitHardwareHUB_v2.Classes
 {
@@ -108,7 +107,7 @@ namespace CockpitHardwareHUB_v2.Classes
                 string[] parts = PNPDeviceID.Split(new string[] { "\\" }, StringSplitOptions.None);
                 if (parts.Length != 3)
                 {
-                    Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"DeviceServer.AddDevice: PNPDeviceID \"{PNPDeviceID}\" is not correct");
+                    Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"DeviceServer.AddDevice: PNPDeviceID \"{PNPDeviceID}\" has not 3 parts");
                     return;
                 }
                 else if (parts[0] != "USB")

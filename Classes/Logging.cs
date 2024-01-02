@@ -10,7 +10,8 @@ namespace CockpitHardwareHUB_v2.Classes
         SRV = LogSource.Server, // Re-use WASimCommander enum value LogSource.Server
         APP,
         DEV,
-        PRP
+        VAR,
+        PPL
     }
 
     internal static class Logging

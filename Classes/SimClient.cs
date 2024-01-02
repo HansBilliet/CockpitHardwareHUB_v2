@@ -1,5 +1,4 @@
-﻿using WASimCommander.CLI;
-using WASimCommander.CLI.Client;
+﻿using WASimCommander.CLI.Client;
 using WASimCommander.CLI.Enums;
 using WASimCommander.CLI.Structs;
 
@@ -24,7 +23,7 @@ namespace CockpitHardwareHUB_v2.Classes
             _WASimClient.setLogLevel(logLevel == LogLevel.Trace ? LogLevel.Debug : logLevel, LogFacility.Remote, LogSource.Server);
             _WASimClient.setLogLevel(LogLevel.None, LogFacility.Console | LogFacility.File, LogSource.Server);
 
-            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"LogLevel set to {logLevel}");
+            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"SimClient.SetLogLevel: LogLevel set to {logLevel}");
         }
 
         // WASimCommander Event handlers
@@ -32,7 +31,6 @@ namespace CockpitHardwareHUB_v2.Classes
         // This is an event handler for printing Client and Server log messages
         private static void LogHandler(LogRecord lr, LogSource src)
         {
-            //Logging.Log(lr.level, src == LogSource.Client ? LoggingSource.CLT : LoggingSource.SRV, () => lr.message.op_Implicit(), lr.timestamp);
             Logging.Log(lr.level, src == LogSource.Client ? LoggingSource.CLT : LoggingSource.SRV, () => lr.message.op_Implicit(), lr.timestamp);
         }
 
@@ -51,7 +49,7 @@ namespace CockpitHardwareHUB_v2.Classes
                     break;
             }
 
-            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"Simclient.ClientStatusHandler: Client event {ev.eventType} - \"{ev.message}\" - Client status: {ev.status}");
+            Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"Simclient.ClientStatusHandler: Client event {ev.eventType}: \"{ev.message}\" - Client status: {ev.status}");
         }
 
         // Event handler for showing listing results (eg. local vars list)
@@ -104,7 +102,7 @@ namespace CockpitHardwareHUB_v2.Classes
                 // Not yet connected to the Simulator, try to connect
                 if ((hr = _WASimClient.connectSimulator()) != HR.OK)
                 {
-                    Logging.Log(LogLevel.Error, LoggingSource.APP, () => "SimClient.Connect: Cannot connect to Simulator, quitting. Error: " + hr.ToString());
+                    Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.Connect: Cannot connect to Simulator, quitting. Error: {hr}");
                     return; // There is nothing more we can do
                 }
             }
@@ -126,7 +124,7 @@ namespace CockpitHardwareHUB_v2.Classes
                 // Not yet connected to the Server, try to connect
                 if ((hr = _WASimClient.connectServer()) != HR.OK)
                 {
-                    Logging.Log(LogLevel.Error, LoggingSource.APP, () => "SimClient.Connect: Server connection failed, quitting. Error: " + hr.ToString());
+                    Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.Connect: Server connection failed, quitting. Error: {hr}");
                     _WASimClient.disconnectSimulator();
                     return;
                 }
@@ -178,13 +176,13 @@ namespace CockpitHardwareHUB_v2.Classes
         {
             if (!IsConnected)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: \"{simVar.sVarName}\" failed because Simulator is not connected");
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: \"{simVar.sPropStr}\" failed because Simulator is not connected");
                 return false;
             }
 
             if (simVar.bIsRegistered)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: \"{simVar.sVarName}\" failed because SimVar is already registered");
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: \"{simVar.sPropStr}\" failed because SimVar is already registered");
                 return false;
             }
 
@@ -208,7 +206,7 @@ namespace CockpitHardwareHUB_v2.Classes
                             if ((hr = _WASimClient.lookup(LookupItemType.UnitType, simVar.sUnit, out int unitId)) != HR.OK)
                             {
                                 Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: " +
-                                    $"'A'-var \"{simVar.sVarName}\" lookup for unit failed with {hr}");
+                                    $"'A'-var \"{simVar.sVarName}\" lookup for unit \"{simVar.sUnit}\" failed with {hr}");
                                 return false;
                             }
                             simVar.iUnitId = unitId;
@@ -241,7 +239,7 @@ namespace CockpitHardwareHUB_v2.Classes
                         if ((hr = _WASimClient.lookup(LookupItemType.LocalVariable, simVar.sVarName, out int externalId)) != HR.OK)
                         {
                             Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: " +
-                                $"'L'-var \"{simVar.sVarName}\" failed with {hr}");
+                                $"'L'-var \"{simVar.sVarName}\" lookup failed with {hr}");
                             return false;
                         }
                         // If it is a Read variable, also save a DataRequest
@@ -333,13 +331,13 @@ namespace CockpitHardwareHUB_v2.Classes
         {
             if (!IsConnected)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: \"{simVar.sVarName}\" failed because Simulator is not connected");
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: \"{simVar.sPropStr}\" failed because Simulator is not connected");
                 return;
             }
 
             if (!simVar.bIsRegistered)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: \"{simVar.sVarName}\" failed because SimVar is already registered");
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: \"{simVar.sPropStr}\" failed because SimVar is not registered");
                 return;
             }
 
@@ -415,19 +413,19 @@ namespace CockpitHardwareHUB_v2.Classes
         {
             if (!IsConnected)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" failed because Simulator is not connected");
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sPropStr}\" failed because Simulator is not connected");
                 return;
             }
 
             if (!simVar.bIsRegistered)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" failed because SimVar is already registered");
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sPropStr}\" failed because SimVar is not registered");
                 return;
             }
 
             if (!simVar.bWrite)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" failed because SimVar is not Write");
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sPropStr}\" failed because SimVar is not Write");
                 return;
             }
 
@@ -439,7 +437,7 @@ namespace CockpitHardwareHUB_v2.Classes
                     {
                         if ((hr = _WASimClient.setVariable(new(simVar.sVarName, simVar.sUnit, simVar.Index), simVar.dValue[0])) != HR.OK)
                         {
-                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" failed with {hr}");
+                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sPropStr}\" failed with {hr}");
                             return;
                         }
                         break;
@@ -449,7 +447,7 @@ namespace CockpitHardwareHUB_v2.Classes
                     {
                         if ((hr = _WASimClient.setVariable(new((int)simVar.ExternalId), simVar.dValue[0])) != HR.OK)
                         {
-                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" failed with {hr}");
+                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sPropStr}\" failed with {hr}");
                             return;
                         }
                         break;
@@ -460,7 +458,7 @@ namespace CockpitHardwareHUB_v2.Classes
                         hr = _WASimClient.sendKeyEvent(simVar.ExternalId, (uint)simVar.dValue[0], (uint)simVar.dValue[1], (uint)simVar.dValue[2], (uint)simVar.dValue[3], (uint)simVar.dValue[4]);
                         if (hr != HR.OK)
                         {
-                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" failed with {hr}");
+                            Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sPropStr}\" failed with {hr}");
                             return;
                         }
                         break;
@@ -473,7 +471,7 @@ namespace CockpitHardwareHUB_v2.Classes
                             string sFormated = string.Format(simVar.sVarName, simVar.dValue[0], simVar.dValue[1], simVar.dValue[2], simVar.dValue[3], simVar.dValue[4]);
                             if ((hr = _WASimClient.executeCalculatorCode(sFormated)) != HR.OK)
                             {
-                                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" failed with {hr}");
+                                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sPropStr}\" failed with {hr}");
                                 return;
                             }
                         }
@@ -481,7 +479,7 @@ namespace CockpitHardwareHUB_v2.Classes
                         {
                             if ((hr = _WASimClient.transmitEvent((uint)simVar.iVarId)) != HR.OK)
                             {
-                                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" failed with {hr}");
+                                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sPropStr}\" failed with {hr}");
                                 return;
                             }
                         }
@@ -489,7 +487,7 @@ namespace CockpitHardwareHUB_v2.Classes
                     }
             }
 
-            Logging.Log(LogLevel.Debug, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sVarName}\" = {simVar.dValue} succeeded");
+            Logging.Log(LogLevel.Debug, LoggingSource.APP, () => $"SimClient.TriggerSimVar: \"{simVar.sPropStr}\" = {simVar.dValue} succeeded");
         }
 
         internal static HR ExecuteCalculatorCode(string sCode, out string s)

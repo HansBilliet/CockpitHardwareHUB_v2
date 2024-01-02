@@ -30,10 +30,9 @@ namespace CockpitHardwareHUB_v2.Classes
             if (simVar.ParseResult != PR.Ok)
             {
                 // Parsing of sPropStr failed
-                Logging.Log(LogLevel.Error, LoggingSource.PRP, () => $"PropertyPool.AddPropertyInPool: {device} - {simVar.ParseResult} for {sPropStr}");
+                Logging.Log(LogLevel.Error, LoggingSource.PPL, () => $"PropertyPool.AddPropertyInPool: Parsing of \"{sPropStr}\" for {device} failed with {simVar.ParseResult}");
                 return -1;
             }
-            Logging.Log(LogLevel.Debug, LoggingSource.PRP, () => $"PropertyPool.AddPropertyInPool: {device} - {simVar}");
 
             // Increase usage of the SimVar
             simVar.IncUsageCnt(device, iPropId);
@@ -44,20 +43,20 @@ namespace CockpitHardwareHUB_v2.Classes
             // Register the simVar
             SimClient.RegisterSimVar(simVar);
 
+            Logging.Log(LogLevel.Debug, LoggingSource.PPL, () => $"PropertyPool.AddPropertyInPool: \"{sPropStr}\" for {device} added");
+
             return simVar.iVarId;
         }
 
-        internal static void RemovePropertyFromPool(COMDevice device, int iSimId)
+        internal static void RemovePropertyFromPool(COMDevice device, int iVarId)
         {
             // Check if variable exists
-            SimVar simVar = SimVar.GetSimVarById(iSimId);
+            SimVar simVar = SimVar.GetSimVarById(iVarId);
             if (simVar == null)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.PRP, () => $"PropertyPool.RemovePropertyFromPool: {device} - {simVar}");
+                Logging.Log(LogLevel.Error, LoggingSource.PPL, () => $"PropertyPool.RemovePropertyFromPool: SimVar {iVarId} for {device} not found");
                 return;
             }
-
-            Logging.Log(LogLevel.Debug, LoggingSource.PRP, () => $"PropertyPool.RemovePropertyFromPool: {device} - {simVar}");
 
             // Decrease the usage of the SimVar - if UsageCnt becomes 0, we can unregister and remove the variable
             if (simVar.DecUsageCnt(device) != 0)
@@ -68,6 +67,7 @@ namespace CockpitHardwareHUB_v2.Classes
 
             // Remove the variable from the list
             simVar.RemoveSimVar();
+            Logging.Log(LogLevel.Debug, LoggingSource.PPL, () => $"PropertyPool.RemovePropertyFromPool: \"{simVar.sPropStr}\" for {device} removed");
         }
 
         internal static void TriggerProperty(int iVarId, string sData)
@@ -76,20 +76,20 @@ namespace CockpitHardwareHUB_v2.Classes
             SimVar simVar = SimVar.GetSimVarById(iVarId);
             if (simVar == null)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"PropertyPool.TriggerProperty: SimVar with ID {iVarId} not found");
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"PropertyPool.TriggerProperty: SimVar {iVarId} not found");
                 return;
             }
 
             // Check if variable is writeable
             if (!simVar.bWrite)
             {
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"PropertyPool.TriggerProperty: SimVar with ID {simVar.iVarId} is not a Write property");
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"PropertyPool.TriggerProperty: \"{simVar.sPropStr}\" is not a Write property");
                 return;
             }
 
             if (!simVar.SetValueOfSimVar(sData))
             {
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"PropertyPool.TriggerProperty: SimVar with ID {simVar.iVarId} requires data of type \"{simVar.ValType}\".");
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"PropertyPool.TriggerProperty: \"{simVar.sPropStr}\" requires data of type [{simVar.ValType}].");
                 return;
             }
 
