@@ -53,4 +53,4 @@ Developed by Hans Billiet, the project leverages contributions from Maxim Papern
 
 ---
 
-[View the complete document](/mnt/data/CockpitHardwareHUB%20Readme.docx)
+[View the complete document](CockpitHardwareHUB%20Readme.docx)
