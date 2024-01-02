@@ -22,7 +22,7 @@ Devices undergo a registration process involving command-response sequences, suc
 `: Device sends its Property strings.
 
 ## Properties and Variables
-Properties received are added to the Property Pool, becoming 'Variables' registered with MSFS using SimConnect and/or the WASM module. Variables are identified by 'Property Id' and translated into an internal numbering system.
+Properties received are added to the Property Pool, becoming 'Variables' registered with MSFS using SimConnect and/or the WASM module. Properties are identified by 'Property Id' and translated in Variables which use an internal numbering system.
 
 ### Construction of a Device Property
 Device properties follow a specific format, including:
@@ -30,7 +30,7 @@ Device properties follow a specific format, including:
 - RW: Read or Write indication.
 - VarType: Type of variable (Simulation, Local, Events, etc.)
 - VarName: Name of the variable.
-- Extension (optional): Additional variable information.
+- Index (optional): Additional variable information.
 - Unit: (Only for 'A' type variables)
 
 ## Restrictions and Data Exchange
@@ -38,9 +38,7 @@ CockpitHardwareHUB_v2 applies restrictions based on VarType and facilitates data
 
 ## User Interface
 The tool assists in developing hardware with features like:
-- Connection group: For managing connections with MSFS 2020 and devices.
-- USB Devices: Shows properties of detected devices and allows interaction.
-- Execute_calculator_code: Helps in experimenting with commands.
+- 'execute_calculator_code': Helps in experimenting with commands.
 - Virtual Device: Simulates a real USB device for property testing.
 
 ## Credits
