@@ -402,8 +402,16 @@ namespace CockpitHardwareHUB_v2.Classes
                 return;
             }
 
-            // A and L variables can not be STRING256
-            if ((_cVarType == 'A' || _cVarType == 'L') && _ValType == ValueTypes.STRING256)
+            // A and L can only be INT8, INT16, INT32, INT64, FLOAT32 and FLOAT64
+            ValueTypes[] ATypes = {
+                ValueTypes.INT8,
+                ValueTypes.INT16,
+                ValueTypes.INT32,
+                ValueTypes.INT64,
+                ValueTypes.FLOAT32,
+                ValueTypes.FLOAT64
+            };
+            if ((_cVarType == 'A' || _cVarType == 'L') && !Array.Exists(ATypes, x => x == _ValType))
             {
                 _ParseResult = PR.KVarUnsupportedValType;
                 return;
@@ -499,6 +507,10 @@ namespace CockpitHardwareHUB_v2.Classes
                     if (bConversionSucceeded = dr.tryConvert(out double dVal))
                         sValue = dVal.ToString("0.000", System.Globalization.CultureInfo.GetCultureInfo("en-US"));
                     break;
+                case ValueTypes.STRING16:
+                case ValueTypes.STRING32:
+                case ValueTypes.STRING64:
+                case ValueTypes.STRING128:
                 case ValueTypes.STRING256:
                     if (bConversionSucceeded = dr.tryConvert(out string sVal))
                         sValue = sVal;

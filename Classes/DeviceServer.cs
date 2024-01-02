@@ -46,8 +46,6 @@ namespace CockpitHardwareHUB_v2.Classes
 
         public static void Init() // MainForm mainForm)
         {
-            //_MainForm = mainForm;
-
             // Setup event handlers for scanning serial ports
             _SerialPortManager.OnPortFoundEvent += OnPortFoundEvent;
             _SerialPortManager.OnPortAddedEvent += OnPortAddedEvent;

@@ -50,6 +50,9 @@ namespace CockpitHardwareHUB_v2.Classes
 
         internal static void RemovePropertyFromPool(COMDevice device, int iVarId)
         {
+            if (iVarId == -1)
+                return;
+
             // Check if variable exists
             SimVar simVar = SimVar.GetSimVarById(iVarId);
             if (simVar == null)

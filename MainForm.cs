@@ -158,16 +158,16 @@ namespace CockpitHardwareHUB_v2
                 txtExecCalcCode.Enabled = !_bSilentMode;
                 btnSendExecCalcCode.Enabled = !_bSilentMode;
 
-                txtSimVar.Enabled = _bVirtualDeviceConnected;
+                txtProperty.Enabled = _bVirtualDeviceConnected;
                 if (!_bVirtualDeviceConnected)
-                    txtSimVar.Text = "";
+                    txtProperty.Text = "";
                 btnConnectVD.Enabled = !_bSilentMode;
                 btnConnectVD.Text = $"{(_bVirtualDeviceConnected ? "Disconnect" : "Connect")} Virtual Device";
                 btnAddProperty.Enabled = _bVirtualDeviceConnected;
                 btnSaveVirtualProperties.Enabled = _bVirtualDeviceConnected;
                 btnLoadVirtualProperties.Enabled = _bVirtualDeviceConnected;
-                btnSendToDevices.Enabled = _bVirtualDeviceConnected;
-                btnSendToMSFS.Enabled = _bVirtualDeviceConnected;
+                btnSendToDevices.Enabled = !_bSilentMode;
+                btnSendToMSFS.Enabled = !_bSilentMode;
             }
             else
             {
@@ -176,8 +176,8 @@ namespace CockpitHardwareHUB_v2
                 txtExecCalcCodeResult.Text = "";
                 btnSendExecCalcCode.Enabled = false;
 
-                txtSimVar.Text = "";
-                txtSimVar.Enabled = false;
+                txtProperty.Text = "";
+                txtProperty.Enabled = false;
                 btnConnectVD.Text = "Connect Virtual Device";
                 btnConnectVD.Enabled = false;
                 btnAddProperty.Enabled = false;
@@ -378,7 +378,7 @@ namespace CockpitHardwareHUB_v2
 
         private void btnAddProperty_Click(object sender, EventArgs e)
         {
-            if (txtSimVar.Text == "")
+            if (txtProperty.Text == "")
             {
                 MessageBox.Show("Enter a Property String in the input field.", "Input required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
@@ -391,7 +391,7 @@ namespace CockpitHardwareHUB_v2
                 return;
             }
 
-            PR parseResult = device.AddProperty(txtSimVar.Text);
+            PR parseResult = device.AddProperty(txtProperty.Text);
             if (parseResult != PR.Ok)
             {
                 MessageBox.Show($"Property String parse error: {parseResult}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -505,7 +505,7 @@ namespace CockpitHardwareHUB_v2
 
         private void SendSimVar(bool bRead)
         {
-            if (txtSimVar.Text == "")
+            if (txtCommand.Text == "")
             {
                 MessageBox.Show("Enter an existing Variable number with optional data in the input field." + Environment.NewLine + Environment.NewLine +
                                 "Accepted formats are:" + Environment.NewLine +
@@ -516,7 +516,7 @@ namespace CockpitHardwareHUB_v2
             }
 
             // Split the txtSimVar input by '='
-            string[] parts = txtSimVar.Text.Split(new char[] { '=' }, 2);
+            string[] parts = txtCommand.Text.Split(new char[] { '=' }, 2);
             string sCmd = parts[0];
             string sData = parts.Length > 1 ? parts[1] : "";
 

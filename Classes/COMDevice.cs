@@ -266,11 +266,10 @@ namespace CockpitHardwareHUB_v2.Classes
                 string sPropStr;
                 while ((sPropStr = _serialPort.ReadLine()) != "")
                 {
-                    if (iPropId == 5) // Test faulty properties
-                        sPropStr = "blablabla";
                     // Add each property in the property list of the COMDevice - the PropertyId is the index + 1
                     _Properties.Add(new Property(sPropStr));
-                    Logging.Log(LogLevel.Debug, LoggingSource.DEV, () => $"COMDevice.GetProperties: {this} REGISTER {iPropId++} = \"{sPropStr}\"");
+                    Logging.Log(LogLevel.Debug, LoggingSource.DEV, () => $"COMDevice.GetProperties: {this} REGISTER {iPropId} = \"{sPropStr}\"");
+                    iPropId++;
                 }
 
                 // During 'ReadLine()', exceptions can be thrown which aborts the 'GetProperties()'.
@@ -307,7 +306,7 @@ namespace CockpitHardwareHUB_v2.Classes
             Property property = new Property(sPropStr);
             property.iVarId = PropertyPool.AddPropertyInPool(this, iPropId, property.sPropStr, out PR parseResult);
 
-            if (property.iVarId != -1)
+            //if (property.iVarId != -1)
                 _Properties.Add(property);
 
             return parseResult;

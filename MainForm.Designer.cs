@@ -29,6 +29,7 @@
         private void InitializeComponent()
         {
             grpConnect = new GroupBox();
+            cbSilentMode = new CheckBox();
             btnConnectMSFS = new Button();
             grpLogging = new GroupBox();
             lvLogging = new ListView();
@@ -59,23 +60,23 @@
             grpVariables = new GroupBox();
             lvVariables = new ListView();
             cbRW = new ComboBox();
+            btnSendToDevices = new Button();
+            btnSendToMSFS = new Button();
             lblRW = new Label();
             txtVariablesFilter = new TextBox();
             lblVariablesFilter = new Label();
             grpVirtualDevice = new GroupBox();
             btnLoadVirtualProperties = new Button();
             btnSaveVirtualProperties = new Button();
-            btnSendToDevices = new Button();
-            btnSendToMSFS = new Button();
             btnAddProperty = new Button();
             btnConnectVD = new Button();
-            txtSimVar = new TextBox();
+            txtProperty = new TextBox();
             grpExecCalcode = new GroupBox();
             txtExecCalcCodeResult = new TextBox();
             lblExecCalcCodeResult = new Label();
             btnSendExecCalcCode = new Button();
             txtExecCalcCode = new TextBox();
-            cbSilentMode = new CheckBox();
+            txtCommand = new TextBox();
             grpConnect.SuspendLayout();
             grpLogging.SuspendLayout();
             grpDevices.SuspendLayout();
@@ -96,6 +97,17 @@
             grpConnect.TabIndex = 0;
             grpConnect.TabStop = false;
             grpConnect.Text = "MSFS2020 : DISCONNECTED";
+            // 
+            // cbSilentMode
+            // 
+            cbSilentMode.AutoSize = true;
+            cbSilentMode.Location = new Point(8, 47);
+            cbSilentMode.Name = "cbSilentMode";
+            cbSilentMode.Size = new Size(89, 19);
+            cbSilentMode.TabIndex = 1;
+            cbSilentMode.Text = "Silent mode";
+            cbSilentMode.UseVisualStyleBackColor = true;
+            cbSilentMode.CheckedChanged += cbSilentMode_CheckedChanged;
             // 
             // btnConnectMSFS
             // 
@@ -404,8 +416,11 @@
             // 
             // grpVariables
             // 
+            grpVariables.Controls.Add(txtCommand);
             grpVariables.Controls.Add(lvVariables);
             grpVariables.Controls.Add(cbRW);
+            grpVariables.Controls.Add(btnSendToDevices);
+            grpVariables.Controls.Add(btnSendToMSFS);
             grpVariables.Controls.Add(lblRW);
             grpVariables.Controls.Add(txtVariablesFilter);
             grpVariables.Controls.Add(lblVariablesFilter);
@@ -438,6 +453,26 @@
             cbRW.TabIndex = 4;
             cbRW.SelectionChangeCommitted += cbRW_SelectionChangeCommitted;
             // 
+            // btnSendToDevices
+            // 
+            btnSendToDevices.Location = new Point(639, 15);
+            btnSendToDevices.Name = "btnSendToDevices";
+            btnSendToDevices.Size = new Size(75, 23);
+            btnSendToDevices.TabIndex = 5;
+            btnSendToDevices.Text = ">Devices";
+            btnSendToDevices.UseVisualStyleBackColor = true;
+            btnSendToDevices.Click += btnSendToDevices_Click;
+            // 
+            // btnSendToMSFS
+            // 
+            btnSendToMSFS.Location = new Point(558, 15);
+            btnSendToMSFS.Name = "btnSendToMSFS";
+            btnSendToMSFS.Size = new Size(75, 23);
+            btnSendToMSFS.TabIndex = 4;
+            btnSendToMSFS.Text = ">MSFS";
+            btnSendToMSFS.UseVisualStyleBackColor = true;
+            btnSendToMSFS.Click += btnSendToMSFS_Click;
+            // 
             // lblRW
             // 
             lblRW.AutoSize = true;
@@ -468,11 +503,9 @@
             // 
             grpVirtualDevice.Controls.Add(btnLoadVirtualProperties);
             grpVirtualDevice.Controls.Add(btnSaveVirtualProperties);
-            grpVirtualDevice.Controls.Add(btnSendToDevices);
-            grpVirtualDevice.Controls.Add(btnSendToMSFS);
             grpVirtualDevice.Controls.Add(btnAddProperty);
             grpVirtualDevice.Controls.Add(btnConnectVD);
-            grpVirtualDevice.Controls.Add(txtSimVar);
+            grpVirtualDevice.Controls.Add(txtProperty);
             grpVirtualDevice.Location = new Point(305, 97);
             grpVirtualDevice.Name = "grpVirtualDevice";
             grpVirtualDevice.Size = new Size(720, 82);
@@ -482,7 +515,7 @@
             // 
             // btnLoadVirtualProperties
             // 
-            btnLoadVirtualProperties.Location = new Point(414, 51);
+            btnLoadVirtualProperties.Location = new Point(639, 51);
             btnLoadVirtualProperties.Name = "btnLoadVirtualProperties";
             btnLoadVirtualProperties.Size = new Size(75, 23);
             btnLoadVirtualProperties.TabIndex = 7;
@@ -492,33 +525,13 @@
             // 
             // btnSaveVirtualProperties
             // 
-            btnSaveVirtualProperties.Location = new Point(333, 51);
+            btnSaveVirtualProperties.Location = new Point(558, 51);
             btnSaveVirtualProperties.Name = "btnSaveVirtualProperties";
             btnSaveVirtualProperties.Size = new Size(75, 23);
             btnSaveVirtualProperties.TabIndex = 6;
             btnSaveVirtualProperties.Text = "Save";
             btnSaveVirtualProperties.UseVisualStyleBackColor = true;
             btnSaveVirtualProperties.Click += btnSaveVirtualProperties_Click;
-            // 
-            // btnSendToDevices
-            // 
-            btnSendToDevices.Location = new Point(639, 51);
-            btnSendToDevices.Name = "btnSendToDevices";
-            btnSendToDevices.Size = new Size(75, 23);
-            btnSendToDevices.TabIndex = 5;
-            btnSendToDevices.Text = ">Devices";
-            btnSendToDevices.UseVisualStyleBackColor = true;
-            btnSendToDevices.Click += btnSendToDevices_Click;
-            // 
-            // btnSendToMSFS
-            // 
-            btnSendToMSFS.Location = new Point(558, 51);
-            btnSendToMSFS.Name = "btnSendToMSFS";
-            btnSendToMSFS.Size = new Size(75, 23);
-            btnSendToMSFS.TabIndex = 4;
-            btnSendToMSFS.Text = ">MSFS";
-            btnSendToMSFS.UseVisualStyleBackColor = true;
-            btnSendToMSFS.Click += btnSendToMSFS_Click;
             // 
             // btnAddProperty
             // 
@@ -540,12 +553,12 @@
             btnConnectVD.UseVisualStyleBackColor = true;
             btnConnectVD.Click += btnConnectVD_Click;
             // 
-            // txtSimVar
+            // txtProperty
             // 
-            txtSimVar.Location = new Point(6, 22);
-            txtSimVar.Name = "txtSimVar";
-            txtSimVar.Size = new Size(708, 23);
-            txtSimVar.TabIndex = 0;
+            txtProperty.Location = new Point(6, 22);
+            txtProperty.Name = "txtProperty";
+            txtProperty.Size = new Size(708, 23);
+            txtProperty.TabIndex = 0;
             // 
             // grpExecCalcode
             // 
@@ -594,16 +607,12 @@
             txtExecCalcCode.Size = new Size(652, 23);
             txtExecCalcCode.TabIndex = 0;
             // 
-            // cbSilentMode
+            // txtCommand
             // 
-            cbSilentMode.AutoSize = true;
-            cbSilentMode.Location = new Point(8, 47);
-            cbSilentMode.Name = "cbSilentMode";
-            cbSilentMode.Size = new Size(89, 19);
-            cbSilentMode.TabIndex = 1;
-            cbSilentMode.Text = "Silent mode";
-            cbSilentMode.UseVisualStyleBackColor = true;
-            cbSilentMode.CheckedChanged += cbSilentMode_CheckedChanged;
+            txtCommand.Location = new Point(383, 16);
+            txtCommand.Name = "txtCommand";
+            txtCommand.Size = new Size(169, 23);
+            txtCommand.TabIndex = 6;
             // 
             // MainForm
             // 
@@ -677,7 +686,7 @@
         private ListView lvVariables;
         private ListView lvLogging;
         private GroupBox grpVirtualDevice;
-        private TextBox txtSimVar;
+        private TextBox txtProperty;
         private Button btnConnectVD;
         private Button btnAddProperty;
         private Button btnSendToDevices;
@@ -690,5 +699,6 @@
         private Button btnLoadVirtualProperties;
         private Button btnSaveVirtualProperties;
         private CheckBox cbSilentMode;
+        private TextBox txtCommand;
     }
 }
