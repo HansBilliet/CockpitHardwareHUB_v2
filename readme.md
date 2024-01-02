@@ -38,7 +38,7 @@ CockpitHardwareHUB_v2 applies restrictions based on VarType and facilitates data
 
 ## User Interface
 The tool assists in developing hardware with features like:
-- 'execute_calculator_code': Helps in experimenting with commands.
+- `execute_calculator_code`: Helps in experimenting with commands.
 - Virtual Device: Simulates a real USB device for property testing.
 
 ## Credits
