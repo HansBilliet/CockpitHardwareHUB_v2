@@ -1,6 +1,6 @@
-[![GitHub release (version 1.2.0.1)](https://img.shields.io/badge/Executables-v1.2.0.1-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/Executables)
-[![GitHub release (version 1.2.0.1)](https://img.shields.io/badge/WASM--Module-v1.2.0.0-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/WASM%20Module)
-[![GitHub release (version 1.2.0.1)](https://img.shields.io/badge/Documentation-v1.2.0.1-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/blob/master/CockpitHardwareHUB%20Readme.docx)
+[![GitHub release (version 1.2.0)](https://img.shields.io/badge/Executables-v1.2.0-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/Executables)
+[![GitHub release (version 1.2.3.0)](https://img.shields.io/badge/WASM--Module-v1.2.0.0-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/WASM%20Module)
+[![GitHub release (version 1.2.0)](https://img.shields.io/badge/Documentation-v1.2.0-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/blob/master/CockpitHardwareHUB%20Readme.docx)
 
 # CockpitHardwareHUB_v2
 
@@ -52,16 +52,15 @@ The tool assists in developing hardware with features like:
 ## Installation
 
 The GitHub repository contains 2 folders that allow to immediately use the application:
-- [Executables](https://github.com/HansBilliet/CockpitHardwareHUB/tree/master/Executabes) - Copy this to a folder on your computer and launch **CockpitHardwareHUB_v2.exe**
+- [Executables](https://github.com/HansBilliet/CockpitHardwareHUB/tree/master/Executabes) - Copy this to a folder on your computer
 - [WASM module](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/WASM%20Module) - The folder 'wasimcommander-module' needs to be copied in the Community folder of MSFS 2020
 
 ## Credits
-CockpitHardwareHUB_v2 is developed by Hans Billiet. The project leverages contributions from Maxim Paperno who is the creator of [WASimCommander](https://github.com/mpaperno/WASimCommander/tree/). CockpitHardwarHUB_v2 uses the WASimCommander WASM module and a slightly adapted version of WASimCommander.WASimClient.dll (v1.2.0.1). Both are included in this repository.
+CockpitHardwareHUB_v2 is developed by Hans Billiet. The project leverages contributions from Maxim Paperno who is the creator of [WASimCommander](https://github.com/mpaperno/WASimCommander/tree/). CockpitHardwarHUB_v2 uses the WASimCommander WASM module and a slightly adapted version of WASimCommander.WASimClient.dll (v1.2.3.0). Both are included in this repository.
 
 ## Copyright License and Disclaimer
 - Copyright: Hans Billiet; All Rights Reserved.
 - Licensed under GNU General Public License (GPL) v3 or later.
-- WASimCommander project is used under the terms of the GPLv3 license.
 - No warranty for the program's utility, suitability, or merchantability.
 
 ---
