@@ -56,7 +56,7 @@ The GitHub repository contains 2 folders that allow to immediately use the appli
 - [WASM module](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/WASM%20Module) - The folder 'wasimcommander-module' needs to be copied in the Community folder of MSFS 2020
 
 ## Credits
-CockpitHardwareHUB_v2 is developed by Hans Billiet. The project leverages contributions from Maxim Paperno who is the creator of [WASimCommander](https://github.com/mpaperno/WASimCommander/tree/). CockpitHardwarHUB_v2 uses the WASimCommander WASM module and a slightly adapted version of WASimCommander.WASimClient.dll (v1.2.3.0). Both are included in this repository.
+CockpitHardwareHUB_v2 is developed by Hans Billiet. The project leverages contributions from Maxim Paperno who is the creator of [WASimCommander](https://github.com/mpaperno/WASimCommander/tree/). CockpitHardwarHUB_v2 uses the WASimCommander WASM module and a slightly adapted version of WASimCommander.WASimClient.dll (v1.2.0.1). Both are included in this repository.
 
 ## Copyright License and Disclaimer
 - Copyright: Hans Billiet; All Rights Reserved.
