@@ -1,0 +1,15 @@
+{
+  "dependencies": [],
+  "content_type": "MISC",
+  "title": "WASimCommander WASM Module",
+  "manufacturer": "",
+  "creator": "Copyright Maxim Paperno; All rights reserved.",
+  "package_version": "1.2.0",
+  "minimum_game_version": "1.34.16",
+  "release_notes": {
+    "neutral": {
+      "LastUpdate": "",
+      "OlderHistory": ""
+    }
+  }
+}

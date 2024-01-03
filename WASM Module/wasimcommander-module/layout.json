@@ -1,0 +1,24 @@
+{
+  "content": [
+    {
+      "path": "ContentInfo/wasimcommander-module/Thumbnail.jpg",
+      "size": 25704,
+      "date": 132989725046757824
+    },
+    {
+      "path": "modules/.gitinclude",
+      "size": 0,
+      "date": 133005142328206396
+    },
+    {
+      "path": "modules/server_conf.ini",
+      "size": 135,
+      "date": 132988629538092713
+    },
+    {
+      "path": "modules/WASimModule.wasm",
+      "size": 1734840,
+      "date": 133438602970251058
+    }
+  ]
+}

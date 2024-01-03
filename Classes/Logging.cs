@@ -19,7 +19,7 @@ namespace CockpitHardwareHUB_v2.Classes
         internal delegate void UIUpdateLogging_Handler(LogLevel logLevel, LoggingSource loggingSource, string sLoggingMsg, UInt64 timestamp = 0);
         internal static event UIUpdateLogging_Handler UIUpdateLogging;
 
-        private static LogLevel _SetLogLevel = LogLevel.Info;
+        private static LogLevel _SetLogLevel = LogLevel.None;
         internal static string sLogLevel { get => _SetLogLevel.ToString(); set => Enum.TryParse(value, out _SetLogLevel); }
         internal static LogLevel SetLogLevel { get => _SetLogLevel; set => _SetLogLevel = value; }    
 

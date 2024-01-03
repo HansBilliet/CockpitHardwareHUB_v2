@@ -10,7 +10,7 @@ namespace CockpitHardwareHUB_v2
     public partial class MainForm : Form
     {
         // Version
-        private const string sVersion = "v0.01 - 01NOV2023";
+        private const string sVersion = "v1.2.3 - 03JAN2024";
 
         // Store the silent mode option
         private volatile bool _bSilentMode = false;
@@ -47,7 +47,7 @@ namespace CockpitHardwareHUB_v2
 
         private void MainForm_Load(object sender, EventArgs e)
         {
-            Text += sVersion;
+            Text = "Cockpit Hardware HUB v2 - " + sVersion;
 
             _ListViewControllerVariables = new(lvVariables);
             _ListViewControllerLogging = new(lvLogging, maxLogLines);

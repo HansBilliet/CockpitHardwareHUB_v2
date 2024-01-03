@@ -532,7 +532,7 @@ namespace CockpitHardwareHUB_v2.Classes
         internal bool SetValueOfSimVar(string sData)
         {
             Array.Clear(dValue, 0, dValue.Length);
-            sValue = "0";
+            sValue = sData;
             if (sData == "")
                 return true;
 
