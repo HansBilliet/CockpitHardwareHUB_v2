@@ -14,6 +14,7 @@
 ### Key Features
 - Compatibility with any microcontroller providing a serial interface via USB.
 - Configurations are "pushed" from each device, eliminating extra maintenance.
+- Devices are hot swappable
 
 ### Concept
 The tool listens for `Win32_SerialPort` devices and identifies hardware using the PNPDevice string format `USB\VID_vvvv&PID_pppp
@@ -21,27 +22,24 @@ nnnnnnn`. The string components include USB indication, VendorID, ProductID, and
 
 ## Registration Process
 Devices undergo a registration process involving command-response sequences, such as:
-- `RESET
-`: Puts device in Registration Mode.
-- `IDENT
-`: Device responds with DeviceName and ProcessorType.
-- `REGISTER
-`: Device sends its Property strings.
+- `RESET`: Puts device in Registration Mode.
+- `IDENT`: Device responds with DeviceName and ProcessorType.
+- `REGISTER`: Device sends its Property strings.
 
 ## Properties and Variables
-Properties received are added to the Property Pool, becoming 'Variables' registered with MSFS using SimConnect and/or the WASM module. Properties are identified by a 'Property Id' which is the sequence in which they are sent starting from 1. Variables get their own 'Variable Id' which is managed by CockpitHardwarHUB_v2.
+Properties received are added to the Property Pool, becoming **Variables** registered with MSFS using `SimConnect` and/or the `WASM module`. Properties are identified by a **Property Id** which is the sequence in which they are sent starting from 1. Variables get their own **Variable Id** which is managed by CockpitHardwarHUB_v2.
 
 ### Construction of a Device Property
 Device properties follow a specific format, including:
-- ValueType: Type of the property's value.
-- RW: Read or Write indication.
-- VarType: Type of variable (Simulation, Local, Events, etc.)
-- VarName: Name of the variable.
-- Index (optional): Additional variable information.
-- Unit: (Only for 'A' type variables)
+- **ValueType**: Type of the property's value.
+- **RW**: Read or Write indication.
+- **VarType**: Type of variable (Simulation, Local, Events, etc.)
+- **VarName**: Name of the variable.
+- **Index** (optional): Additional variable information.
+- **Unit**: (Only for 'A' type variables)
 
 ### Data Exchange
-Once Properties are successfully registered and linked with a Variable, data can be exchanged between MSFS and the devices. For efficiency, the 3-digit Property ID is used rather than the full Property string. Each command has the format 'NNN[=[data]]', in which 'NNN' is the Property ID and 'data' the optional (if the variable requires it) data prepended by the '='-sign.
+Once Properties are successfully registered and linked with a Variable, data can be exchanged between MSFS and the devices. For efficiency, the 3-digit Property ID is used rather than the full Property string. Each command has the format **NNN[=[data]]**, in which **NNN** is the Property ID and **data** the optional data (if the variable requires it), prepended by the **=**-sign.
 
 CockpitHardwareHUB_v2 applies restrictions based on ValueType, RW and VarType.
 
@@ -58,7 +56,7 @@ The GitHub repository contains 2 folders that allow to immediately use the appli
 - [WASM module](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/WASM%20Module) - The folder 'wasimcommander-module' needs to be copied in the Community folder of MSFS 2020
 
 ## Credits
-CockpitHardwareHUB_v2 is developed by Hans Billiet. The project leverages contributions from Maxim Paperno who is the creator of [WASimCommander](https://github.com/mpaperno/WASimCommander/tree/). CockpitHardwarHUB_v2 uses the WASimCommander WASM module and a slightly adapted version of WASimCommander.WASimClient.dll (v1.2.3.0).
+CockpitHardwareHUB_v2 is developed by Hans Billiet. The project leverages contributions from Maxim Paperno who is the creator of [WASimCommander](https://github.com/mpaperno/WASimCommander/tree/). CockpitHardwarHUB_v2 uses the WASimCommander WASM module and a slightly adapted version of WASimCommander.WASimClient.dll (v1.2.3.0). Both are included in this repository.
 
 ## Copyright License and Disclaimer
 - Copyright: Hans Billiet; All Rights Reserved.
