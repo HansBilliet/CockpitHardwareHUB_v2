@@ -61,8 +61,9 @@ CockpitHardwareHUB_v2 is developed by Hans Billiet. The project leverages contri
 ## Copyright License and Disclaimer
 - Copyright: Hans Billiet; All Rights Reserved.
 - Licensed under GNU General Public License (GPL) v3 or later.
+- WASimCommander project is used under the terms of the GPLv3 license
 - No warranty for the program's utility, suitability, or merchantability.
 
 ---
 
-[View the complete document](CockpitHardwareHUB%20Readme.docx)
+[View User Manual](CockpitHardwareHUB%20User%20Manual.pdf)

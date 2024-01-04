@@ -13,7 +13,7 @@
           "System.Management": "8.0.0",
           "System.Net.Http": "4.3.4",
           "System.Text.RegularExpressions": "4.3.1",
-          "WASimCommander.WASimClient": "1.2.3.0"
+          "WASimCommander.WASimClient": "1.2.0.1"
         },
         "runtime": {
           "CockpitHardwareHUB_v2.dll": {}
@@ -584,10 +584,10 @@
           "runtime.any.System.Threading.Tasks": "4.3.0"
         }
       },
-      "WASimCommander.WASimClient/1.2.3.0": {
+      "WASimCommander.WASimClient/1.2.0.1": {
         "runtime": {
           "WASimCommander.WASimClient.dll": {
-            "assemblyVersion": "1.2.3.0",
+            "assemblyVersion": "1.2.0.1",
             "fileVersion": "0.0.0.0"
           }
         }
@@ -1181,7 +1181,7 @@
       "path": "system.threading.tasks/4.3.0",
       "hashPath": "system.threading.tasks.4.3.0.nupkg.sha512"
     },
-    "WASimCommander.WASimClient/1.2.3.0": {
+    "WASimCommander.WASimClient/1.2.0.1": {
       "type": "reference",
       "serviceable": false,
       "sha512": ""

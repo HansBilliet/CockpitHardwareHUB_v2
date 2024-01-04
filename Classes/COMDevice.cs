@@ -472,7 +472,7 @@ namespace CockpitHardwareHUB_v2.Classes
                     {
                         _serialPort.BaseStream.Write(buffer, 0, sCmd.Length + 1);
 
-                        // Reset the ManualResetEvent and wait for ACK for 50 msec
+                        // Reset the ManualResetEvent and wait for ACK for 150 msec
                         _mreAck.Reset();
                         if (_mreAck.WaitOne(150))
                         {

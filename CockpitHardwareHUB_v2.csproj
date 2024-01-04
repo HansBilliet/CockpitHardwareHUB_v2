@@ -8,6 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Platforms>AnyCPU;x64</Platforms>
     <StartupObject>CockpitHardwareHUB_v2.Program</StartupObject>
+    <SignAssembly>False</SignAssembly>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +21,8 @@
   <ItemGroup>
     <Reference Include="WASimCommander.WASimClient">
       <HintPath>..\..\WASimCommander\DLL\WASimCommander.WASimClient.dll</HintPath>
+      <Private>True</Private>
+      <SpecificVersion>False</SpecificVersion>
     </Reference>
   </ItemGroup>
 
