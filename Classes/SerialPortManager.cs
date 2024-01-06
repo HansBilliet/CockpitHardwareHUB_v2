@@ -6,8 +6,8 @@
 //
 //  Make sure to install System.Management in your projects references.
 //
-//  Start the SerialPortManager with SerialPortManager.scanPorts()
-//  Call SerialPortManager.scanPorts(false) if you don't want Added or Removed events
+//  Start the SerialPortManager with SerialPortManager.ScanPorts()
+//  Call SerialPortManager.ScanPorts(false) if you don't want Added or Removed events
 //  after the initial scan.
 //
 //  You can set the VendorID and / or ProductID to filter for matching USB Virtual com ports.
@@ -17,21 +17,24 @@
 //  reads the Registry and suffers from caching lag.
 //
 //  By Paul van Dinther
+//  Adapted by Hans Billiet to allow passing the filtered VID, PID and SerialNumber with the call the ScanPorts
 
 namespace CockpitHardwareHUB_v2.Classes
 {
     internal class SerialPortEventArgs : EventArgs
     {
-        public SerialPortEventArgs(string portName, int vendorID, int productID, string pnpDeviceID)
+        public SerialPortEventArgs(string portName, int vendorID, int productID, string serialNumber, string pnpDeviceID)
         {
             PortName = portName; //  This is the port eg. "COM1"
             VendorID = vendorID;
             ProductID = productID;
+            SerialNumber = serialNumber;
             PNPDeviceID = pnpDeviceID;
         }
         public string PortName;
         public int VendorID;
         public int ProductID;
+        public string SerialNumber;
         public string PNPDeviceID;
     }
 
@@ -46,33 +49,46 @@ namespace CockpitHardwareHUB_v2.Classes
         private static ManagementScope _scope;
         private uint _vendorID;
         private uint _productID;
-        public uint VendorID { get { return _vendorID; } }
-        public uint ProductID { get { return _productID; } }
-        public SerialPortManager(uint VendorID = 0, uint ProductID = 0)
+        private string _serialNumber;
+
+        public SerialPortManager()
         {
-            _vendorID = VendorID;
-            _productID = ProductID;
             _scope = new ManagementScope("root/CIMV2");
             _scope.Options.EnablePrivileges = true;
             AddInsertUSBHandler();
             AddRemoveUSBHandler();
         }
 
-        internal void scanPorts(bool watchForChanges = true)
+        internal void ScanPorts(bool watchForChanges, uint VendorID, uint ProductID, string SerialNumber)
         {
+            _vendorID = VendorID;
+            _productID = ProductID;
+            _serialNumber = SerialNumber;
+
             try
             {
-                bool checkID = _vendorID + _productID != 0;
+                bool checkID = _vendorID + _productID != 0 || !string.IsNullOrEmpty(SerialNumber);
                 string queryString = "SELECT DeviceID, PNPDeviceID FROM Win32_SerialPort";
-                if (checkID) queryString += " WHERE ";
-                if (_vendorID != 0) queryString += "PNPDeviceID Like '%VID_" + _vendorID.ToString("X4") + "%'";
-                if (_vendorID != 0 && _productID != 0) queryString += " AND ";
-                if (_productID != 0) queryString += "PNPDeviceID Like '%PID_" + _productID.ToString("X4") + "%'";
+
+                if (checkID)
+                {
+                    List<string> conditions = new List<string>();
+                    if (_vendorID != 0)
+                        conditions.Add("PNPDeviceID Like '%VID_" + _vendorID.ToString("X4") + "%'");
+                    if (_productID != 0)
+                        conditions.Add("PNPDeviceID Like '%PID_" + _productID.ToString("X4") + "%'");
+                    if (!string.IsNullOrEmpty(SerialNumber))
+                        conditions.Add("PNPDeviceID Like '%\\\\" + SerialNumber + "'");
+
+                    queryString += " WHERE " + string.Join(" AND ", conditions);
+                }
+
                 ManagementObjectSearcher searcher = new ManagementObjectSearcher("root\\CIMV2", queryString);
                 foreach (ManagementObject queryObj in searcher.Get())
                 {
                     OnPortFoundEvent?.Invoke(this, CreatePortArgs(queryObj));
                 }
+
                 if (watchForChanges)
                 {
                     _watchingAddedObject.Start();
@@ -85,7 +101,7 @@ namespace CockpitHardwareHUB_v2.Classes
             }
         }
 
-        internal void stop()
+        internal void Stop()
         {
             _watchingAddedObject.Stop();
             _watchingRemovedObject.Stop();
@@ -135,27 +151,36 @@ namespace CockpitHardwareHUB_v2.Classes
             string PNPDeviceID = ((string)queryObj.GetPropertyValue("PNPDeviceID")).ToUpper();
             int vid = 0;
             int pid = 0;
+            string serialNumber = "";
+
             int index = PNPDeviceID.IndexOf("VID_");
             if (index > -1 && PNPDeviceID.Length >= index + 8)
             {
                 string id = PNPDeviceID.Substring(index + 4, 4);
                 vid = Convert.ToInt32(id, 16);
             }
+
             index = PNPDeviceID.IndexOf("PID_");
             if (index > -1 && PNPDeviceID.Length >= index + 8)
             {
                 string id = PNPDeviceID.Substring(index + 4, 4);
                 pid = Convert.ToInt32(id, 16);
             }
-            return new SerialPortEventArgs((string)queryObj["DeviceID"], vid, pid, PNPDeviceID);
+
+            index += 9;
+            if (PNPDeviceID.Length > index)
+                serialNumber = PNPDeviceID.Substring(index);
+
+            return new SerialPortEventArgs((string)queryObj["DeviceID"], vid, pid, serialNumber, PNPDeviceID);
         }
 
-        private bool checkIDMatch(SerialPortEventArgs serialPortEventArgs)
+        private bool CheckIDMatch(SerialPortEventArgs serialPortEventArgs)
         {
-            if (_vendorID + _productID != 0)
+            if (_vendorID + _productID != 0 || !string.IsNullOrEmpty(_serialNumber))
             {
                 return (_vendorID == 0 || serialPortEventArgs.VendorID == _vendorID) &&
-                    (_productID == 0 || serialPortEventArgs.ProductID == _productID);
+                       (_productID == 0 || serialPortEventArgs.ProductID == _productID) &&
+                       (string.IsNullOrEmpty(_serialNumber) || serialPortEventArgs.SerialNumber == _serialNumber);
             }
             return true;
         }
@@ -164,7 +189,7 @@ namespace CockpitHardwareHUB_v2.Classes
         {
             var instance = e.NewEvent.GetPropertyValue("TargetInstance") as ManagementBaseObject;
             SerialPortEventArgs serialPortEventArgs = CreatePortArgs(instance);
-            if (checkIDMatch(serialPortEventArgs))
+            if (CheckIDMatch(serialPortEventArgs))
             {
                 OnPortAddedEvent?.Invoke(this, serialPortEventArgs);
             }
@@ -174,7 +199,7 @@ namespace CockpitHardwareHUB_v2.Classes
         {
             var instance = e.NewEvent.GetPropertyValue("TargetInstance") as ManagementBaseObject;
             SerialPortEventArgs serialPortEventArgs = CreatePortArgs(instance);
-            if (checkIDMatch(serialPortEventArgs))
+            if (CheckIDMatch(serialPortEventArgs))
             {
                 OnPortRemovedEvent?.Invoke(this, serialPortEventArgs);
             }

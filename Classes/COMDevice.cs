@@ -48,7 +48,7 @@ namespace CockpitHardwareHUB_v2.Classes
         // A ConcurrentQueue that gets commands from SimClient.DataSubscriptionHandler (via SimVar.DispatchSimVar) and processed in TxPump.
         private readonly BlockingCollection<string> _TxPumpQueue = new();
 
-        // CancellationTokenSource to stop the pumps
+        // CancellationTokenSource to Stop the pumps
         private CancellationTokenSource _ctPumps;
         
         // Transmit and Receive pumps
@@ -361,10 +361,10 @@ namespace CockpitHardwareHUB_v2.Classes
             // cancel the CancellationTokenSource
             _ctPumps.Cancel(false);
 
-            // wait for the pumps to stop running
+            // wait for the pumps to Stop running
             if (!Task.WaitAll(new Task[] { _TxPump, _RxPump }, 600))
                 // One task seems not to have stopped in time
-                Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.StopPumps: {this} One of the pumps didn't stop in time");
+                Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.StopPumps: {this} One of the pumps didn't Stop in time");
             else
                 Logging.Log(LogLevel.Debug, LoggingSource.DEV, () => $"COMDevice.StopPumps: {this} All pumps stopped in time");
 

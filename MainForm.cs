@@ -10,7 +10,7 @@ namespace CockpitHardwareHUB_v2
     public partial class MainForm : Form
     {
         // Version
-        private const string sVersion = "v2.0.0 - 03JAN2024";
+        private const string sVersion = "v2.1.0 - 06JAN2024";
 
         // Store the silent mode option
         private volatile bool _bSilentMode = false;
@@ -62,6 +62,12 @@ namespace CockpitHardwareHUB_v2
             cbLogToFile.Checked = _bLogToFile;
             txtLogFileName.Text = FileLogger.sFileName;
             cbRW.SelectedIndex = 0;
+
+            // Load the filter values
+            RegistryKey key = Registry.CurrentUser.CreateSubKey("Software\\CockpitHardwareHUB");
+            txtVID.Text = (string)key.GetValue("FilterVID", "");
+            txtPID.Text = (string)key.GetValue("FilterPID", "");
+            txtSerial.Text = (string)key.GetValue("FilterSerial", "");
 
             // Initialize timer
             _Timer = new Timer();
@@ -163,6 +169,7 @@ namespace CockpitHardwareHUB_v2
                     txtProperty.Text = "";
                 btnConnectVD.Enabled = !_bSilentMode;
                 btnConnectVD.Text = $"{(_bVirtualDeviceConnected ? "Disconnect" : "Connect")} Virtual Device";
+                grpFilterConnect.Enabled = false;
                 btnAddProperty.Enabled = _bVirtualDeviceConnected;
                 btnSaveVirtualProperties.Enabled = _bVirtualDeviceConnected;
                 btnLoadVirtualProperties.Enabled = _bVirtualDeviceConnected;
@@ -171,6 +178,8 @@ namespace CockpitHardwareHUB_v2
             }
             else
             {
+                grpFilterConnect.Enabled = true;
+
                 txtExecCalcCode.Enabled = false;
                 txtExecCalcCode.Text = "";
                 txtExecCalcCodeResult.Text = "";
@@ -300,11 +309,63 @@ namespace CockpitHardwareHUB_v2
         }
 
         // GroupBox Connect/Disconnect
+
+        private static void MessageBoxFilter(string s)
+        {
+            MessageBox.Show($"{s} is not a correct value. Possible formats are:" + Environment.NewLine +
+                             "- 0xHHHH where [HHHH] is a hex number" + Environment.NewLine +
+                             "- NNNNN where [NNNNN] is a decimal number" + Environment.NewLine +
+                             "- Only values between 1 (0x0001) and 65535 (0xFFFF) are allowed.",
+                             "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+
+        private static bool IsValidFilterValue(string input, out int value)
+        {
+            value = -1;
+            if (string.IsNullOrEmpty(input))
+                return true;
+
+            bool isHex = input.StartsWith("0x", StringComparison.OrdinalIgnoreCase);
+            bool validParse = isHex ? int.TryParse(input[2..], System.Globalization.NumberStyles.HexNumber, null, out value)
+                                    : int.TryParse(input, out value);
+
+            return validParse && value >= 1 && value <= 0xFFFF;
+        }
+
+        private bool CheckFilter()
+        {
+            // check VID
+            if (!IsValidFilterValue(txtVID.Text, out int vidValue))
+            {
+                MessageBoxFilter("VID");
+                return false;
+            }
+            DeviceServer._FilterVID = txtVID.Text == "" ? 0 : (uint)vidValue;
+
+            // check PID
+            if (!IsValidFilterValue(txtPID.Text, out int pidValue))
+            {
+                MessageBoxFilter("PID");
+                return false;
+            }
+            DeviceServer._FilterPID = txtPID.Text == "" ? 0 : (uint)pidValue;
+
+            DeviceServer._FilterSerialNumber = txtSerial.Text.ToUpper();
+
+            RegistryKey key = Registry.CurrentUser.CreateSubKey("Software\\CockpitHardwareHUB");
+            key.SetValue("FilterVID", txtVID.Text);
+            key.SetValue("FilterPID", txtPID.Text);
+            key.SetValue("FilterSerial", txtSerial.Text);
+
+            return true;
+        }
+
         private async void btnConnect_Click(object sender, EventArgs e)
         {
             if (!SimClient.IsConnected)
             {
-                SimClient.Connect();
+                if (CheckFilter())
+                    SimClient.Connect();
             }
             else
             {
@@ -317,6 +378,21 @@ namespace CockpitHardwareHUB_v2
         {
             MessageBox.Show("This option can only be changed when disconnected.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Information);
             _bSilentMode = cbSilentMode.Checked;
+        }
+
+        private void btnResetFilter_Click(object sender, EventArgs e)
+        {
+            if (!SimClient.IsConnected)
+            {
+                txtVID.Text = "";
+                txtPID.Text = "";
+                txtSerial.Text = "";
+
+                RegistryKey key = Registry.CurrentUser.CreateSubKey("Software\\CockpitHardwareHUB");
+                key.SetValue("FilterVID", txtVID.Text);
+                key.SetValue("FilterPID", txtPID.Text);
+                key.SetValue("FilterSerial", txtSerial.Text);
+            }
         }
 
         // GroupBox Devices

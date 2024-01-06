@@ -11,6 +11,10 @@ namespace CockpitHardwareHUB_v2.Classes
 
         private static int IsStarted = 0;
 
+        internal static uint _FilterVID = 0;
+        internal static uint _FilterPID = 0;
+        internal static string _FilterSerialNumber = "";
+
         private static readonly SerialPortManager _SerialPortManager = new();
 
         private static readonly List<COMDevice> _devices = new();
@@ -65,7 +69,7 @@ namespace CockpitHardwareHUB_v2.Classes
             // start scanning for serial ports
             // - already connected USB devices will be "found"
             // - new connected USB devices will be "added"
-            _SerialPortManager.scanPorts(true);
+            _SerialPortManager.ScanPorts(true, _FilterVID, _FilterPID, _FilterSerialNumber);
 
             Logging.Log(LogLevel.Info, LoggingSource.APP, () => "DeviceServer.Start: DeviceServer Started");
         }
@@ -79,7 +83,7 @@ namespace CockpitHardwareHUB_v2.Classes
                 return; // Already stopped
 
             // start scanning for serial ports
-            _SerialPortManager.stop();
+            _SerialPortManager.Stop();
 
             var removalTasks = new List<Task>();
             lock (_devices)

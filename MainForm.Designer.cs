@@ -29,6 +29,14 @@
         private void InitializeComponent()
         {
             grpConnect = new GroupBox();
+            grpFilterConnect = new GroupBox();
+            btnResetFilter = new Button();
+            txtSerial = new TextBox();
+            lblSerial = new Label();
+            txtPID = new TextBox();
+            lblPID = new Label();
+            txtVID = new TextBox();
+            lblVID = new Label();
             cbSilentMode = new CheckBox();
             btnConnectMSFS = new Button();
             grpLogging = new GroupBox();
@@ -58,6 +66,7 @@
             lblDeviceName = new Label();
             cbDevices = new ComboBox();
             grpVariables = new GroupBox();
+            txtCommand = new TextBox();
             lvVariables = new ListView();
             cbRW = new ComboBox();
             btnSendToDevices = new Button();
@@ -76,8 +85,8 @@
             lblExecCalcCodeResult = new Label();
             btnSendExecCalcCode = new Button();
             txtExecCalcCode = new TextBox();
-            txtCommand = new TextBox();
             grpConnect.SuspendLayout();
+            grpFilterConnect.SuspendLayout();
             grpLogging.SuspendLayout();
             grpDevices.SuspendLayout();
             grpVariables.SuspendLayout();
@@ -87,21 +96,99 @@
             // 
             // grpConnect
             // 
+            grpConnect.Controls.Add(grpFilterConnect);
             grpConnect.Controls.Add(cbSilentMode);
             grpConnect.Controls.Add(btnConnectMSFS);
             grpConnect.Location = new Point(13, 10);
             grpConnect.Margin = new Padding(4, 3, 4, 3);
             grpConnect.Name = "grpConnect";
             grpConnect.Padding = new Padding(4, 3, 4, 3);
-            grpConnect.Size = new Size(285, 81);
+            grpConnect.Size = new Size(285, 132);
             grpConnect.TabIndex = 0;
             grpConnect.TabStop = false;
             grpConnect.Text = "MSFS2020 : DISCONNECTED";
             // 
+            // grpFilterConnect
+            // 
+            grpFilterConnect.Controls.Add(btnResetFilter);
+            grpFilterConnect.Controls.Add(txtSerial);
+            grpFilterConnect.Controls.Add(lblSerial);
+            grpFilterConnect.Controls.Add(txtPID);
+            grpFilterConnect.Controls.Add(lblPID);
+            grpFilterConnect.Controls.Add(txtVID);
+            grpFilterConnect.Controls.Add(lblVID);
+            grpFilterConnect.Location = new Point(7, 47);
+            grpFilterConnect.Name = "grpFilterConnect";
+            grpFilterConnect.Size = new Size(271, 79);
+            grpFilterConnect.TabIndex = 2;
+            grpFilterConnect.TabStop = false;
+            grpFilterConnect.Text = "Filter";
+            // 
+            // btnResetFilter
+            // 
+            btnResetFilter.Location = new Point(216, 16);
+            btnResetFilter.Name = "btnResetFilter";
+            btnResetFilter.Size = new Size(48, 52);
+            btnResetFilter.TabIndex = 6;
+            btnResetFilter.Text = "Reset";
+            btnResetFilter.UseVisualStyleBackColor = true;
+            btnResetFilter.Click += btnResetFilter_Click;
+            // 
+            // txtSerial
+            // 
+            txtSerial.Location = new Point(50, 45);
+            txtSerial.MaxLength = 8;
+            txtSerial.Name = "txtSerial";
+            txtSerial.Size = new Size(146, 23);
+            txtSerial.TabIndex = 5;
+            // 
+            // lblSerial
+            // 
+            lblSerial.AutoSize = true;
+            lblSerial.Location = new Point(6, 48);
+            lblSerial.Name = "lblSerial";
+            lblSerial.Size = new Size(38, 15);
+            lblSerial.TabIndex = 4;
+            lblSerial.Text = "Serial:";
+            // 
+            // txtPID
+            // 
+            txtPID.Location = new Point(143, 16);
+            txtPID.MaxLength = 6;
+            txtPID.Name = "txtPID";
+            txtPID.Size = new Size(53, 23);
+            txtPID.TabIndex = 3;
+            // 
+            // lblPID
+            // 
+            lblPID.AutoSize = true;
+            lblPID.Location = new Point(109, 19);
+            lblPID.Name = "lblPID";
+            lblPID.Size = new Size(28, 15);
+            lblPID.TabIndex = 2;
+            lblPID.Text = "PID:";
+            // 
+            // txtVID
+            // 
+            txtVID.Location = new Point(50, 16);
+            txtVID.MaxLength = 6;
+            txtVID.Name = "txtVID";
+            txtVID.Size = new Size(53, 23);
+            txtVID.TabIndex = 1;
+            // 
+            // lblVID
+            // 
+            lblVID.AutoSize = true;
+            lblVID.Location = new Point(16, 19);
+            lblVID.Name = "lblVID";
+            lblVID.Size = new Size(28, 15);
+            lblVID.TabIndex = 0;
+            lblVID.Text = "VID:";
+            // 
             // cbSilentMode
             // 
             cbSilentMode.AutoSize = true;
-            cbSilentMode.Location = new Point(8, 47);
+            cbSilentMode.Location = new Point(189, 21);
             cbSilentMode.Name = "cbSilentMode";
             cbSilentMode.Size = new Size(89, 19);
             cbSilentMode.TabIndex = 1;
@@ -114,7 +201,7 @@
             btnConnectMSFS.Location = new Point(6, 18);
             btnConnectMSFS.Margin = new Padding(4, 3, 4, 3);
             btnConnectMSFS.Name = "btnConnectMSFS";
-            btnConnectMSFS.Size = new Size(272, 23);
+            btnConnectMSFS.Size = new Size(159, 23);
             btnConnectMSFS.TabIndex = 0;
             btnConnectMSFS.Text = "Connect";
             btnConnectMSFS.UseVisualStyleBackColor = true;
@@ -240,11 +327,11 @@
             grpDevices.Controls.Add(lblProcessorType);
             grpDevices.Controls.Add(lblDeviceName);
             grpDevices.Controls.Add(cbDevices);
-            grpDevices.Location = new Point(13, 97);
+            grpDevices.Location = new Point(13, 148);
             grpDevices.Margin = new Padding(4, 3, 4, 3);
             grpDevices.Name = "grpDevices";
             grpDevices.Padding = new Padding(4, 3, 4, 3);
-            grpDevices.Size = new Size(285, 557);
+            grpDevices.Size = new Size(285, 506);
             grpDevices.TabIndex = 2;
             grpDevices.TabStop = false;
             grpDevices.Text = "USB Devices";
@@ -269,7 +356,7 @@
             txtProperties.Name = "txtProperties";
             txtProperties.ReadOnly = true;
             txtProperties.ScrollBars = ScrollBars.Both;
-            txtProperties.Size = new Size(272, 326);
+            txtProperties.Size = new Size(272, 275);
             txtProperties.TabIndex = 14;
             txtProperties.WordWrap = false;
             // 
@@ -430,6 +517,13 @@
             grpVariables.TabIndex = 3;
             grpVariables.TabStop = false;
             grpVariables.Text = "Variables";
+            // 
+            // txtCommand
+            // 
+            txtCommand.Location = new Point(383, 16);
+            txtCommand.Name = "txtCommand";
+            txtCommand.Size = new Size(169, 23);
+            txtCommand.TabIndex = 6;
             // 
             // lvVariables
             // 
@@ -607,13 +701,6 @@
             txtExecCalcCode.Size = new Size(652, 23);
             txtExecCalcCode.TabIndex = 0;
             // 
-            // txtCommand
-            // 
-            txtCommand.Location = new Point(383, 16);
-            txtCommand.Name = "txtCommand";
-            txtCommand.Size = new Size(169, 23);
-            txtCommand.TabIndex = 6;
-            // 
             // MainForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -636,6 +723,8 @@
             Load += MainForm_Load;
             grpConnect.ResumeLayout(false);
             grpConnect.PerformLayout();
+            grpFilterConnect.ResumeLayout(false);
+            grpFilterConnect.PerformLayout();
             grpLogging.ResumeLayout(false);
             grpLogging.PerformLayout();
             grpDevices.ResumeLayout(false);
@@ -700,5 +789,13 @@
         private Button btnSaveVirtualProperties;
         private CheckBox cbSilentMode;
         private TextBox txtCommand;
+        private GroupBox grpFilterConnect;
+        private TextBox txtPID;
+        private Label lblPID;
+        private TextBox txtVID;
+        private Label lblVID;
+        private TextBox txtSerial;
+        private Label lblSerial;
+        private Button btnResetFilter;
     }
 }
