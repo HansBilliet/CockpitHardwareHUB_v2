@@ -1,6 +1,6 @@
-[![GitHub release (version 1.2.0)](https://img.shields.io/badge/Executables-v1.2.0-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/Executables)
+[![GitHub release (version 1.2.0)](https://img.shields.io/badge/Executables-v2.1.0-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/Executables)
 [![GitHub release (version 1.2.3.0)](https://img.shields.io/badge/WASM--Module-v1.2.0.0-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/WASM%20Module)
-[![GitHub release (version 1.2.0)](https://img.shields.io/badge/Documentation-v1.2.0-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/CockpitHardwareHUB%20User%20Manual.pdf)
+[![GitHub release (version 1.2.0)](https://img.shields.io/badge/Documentation-v2.1.0-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/CockpitHardwareHUB%20User%20Manual.pdf)
 
 # CockpitHardwareHUB_v2
 
@@ -17,8 +17,7 @@
 - Devices are hot swappable
 
 ### Concept
-The tool listens for `Win32_SerialPort` devices and identifies hardware using the PNPDevice string format `USB\VID_vvvv&PID_pppp
-nnnnnnn`. The string components include USB indication, VendorID, ProductID, and a unique serial number for each device.
+The tool listens for `Win32_SerialPort` devices and identifies hardware using the PNPDevice string format `USB\VID_vvvv&PID_pppp\nnnnnnn`. The string components include USB indication, VendorID, ProductID, and a unique serial number for each device. The tool allows to filter on specific VID, PID and/or Serial Number.
 
 ## Registration Process
 Devices undergo a registration process involving command-response sequences, such as:
