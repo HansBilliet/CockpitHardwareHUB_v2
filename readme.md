@@ -51,7 +51,7 @@ The tool assists in developing hardware with features like:
 ## Installation
 
 The GitHub repository contains 2 folders that allow to immediately use the application:
-- [Executables](https://github.com/HansBilliet/CockpitHardwareHUB/tree/master/Executabes) - Copy this to a folder on your computer
+- [Executables](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/Executables) - Copy this to a folder on your computer
 - [WASM module](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/WASM%20Module) - The folder 'wasimcommander-module' needs to be copied in the Community folder of MSFS 2020
 
 ## Credits
