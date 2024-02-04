@@ -1,4 +1,5 @@
 ﻿using System.Management;
+using System.Text.RegularExpressions;
 
 //  SerialPort manager for C# WPF using Windows Management Instrumentation (WMI)
 //  This monitor will produce "Port added", "Port Removed" and "Port Found" events
@@ -18,6 +19,7 @@
 //
 //  By Paul van Dinther
 //  Adapted by Hans Billiet to allow passing the filtered VID, PID and SerialNumber with the call the ScanPorts
+//  Adapted by Hans Billiet to improve the scanning algoritm allowing to also find devices using CH340 chip
 
 namespace CockpitHardwareHUB_v2.Classes
 {
@@ -74,7 +76,9 @@ namespace CockpitHardwareHUB_v2.Classes
                 // A better SELECT statement that should solve that issue is below.
                 // “SELECT DeviceID, PNPDeviceID FROM Win32_PnPEntity WHERE Name LIKE ‘%(COM[0-9]%’”
                 // This should find all devices with names including '(COMn', meaning (COM1), (COM2), ... (COM10), ...
-                string queryString = "SELECT DeviceID, PNPDeviceID FROM Win32_SerialPort";
+                // string queryString = "SELECT DeviceID, PNPDeviceID FROM Win32_PnPEntity WHERE Name LIKE ‘%COM([0-9]%’";
+                // string queryString = "SELECT DeviceID, PNPDeviceID FROM Win32_SerialPort";
+                string queryString = "Select * From Win32_PnPEntity where PnPClass = 'Ports' and Name like '%COM%'";
 
                 if (checkID)
                 {
@@ -148,12 +152,18 @@ namespace CockpitHardwareHUB_v2.Classes
             _watcherQuery = new WqlEventQuery();
             _watcherQuery.EventClassName = eventType;
             _watcherQuery.WithinInterval = new TimeSpan(0, 0, 2);
-            _watcherQuery.Condition = @"TargetInstance ISA 'Win32_SerialPort'";
+            // _watcherQuery.Condition = @"TargetInstance ISA 'Win32_SerialPort'";
+            _watcherQuery.Condition = @"TargetInstance ISA 'Win32_PnPEntity'";
             return new ManagementEventWatcher(_scope, _watcherQuery);
         }
 
         private SerialPortEventArgs CreatePortArgs(ManagementBaseObject queryObj)
         {
+            string caption = ((string)queryObj.GetPropertyValue("Caption")).ToUpper();
+            string portName = ExtractCOMPort(caption);
+            if (portName == "")
+                return null;
+
             string PNPDeviceID = ((string)queryObj.GetPropertyValue("PNPDeviceID")).ToUpper();
             int vid = 0;
             int pid = 0;
@@ -177,7 +187,19 @@ namespace CockpitHardwareHUB_v2.Classes
             if (PNPDeviceID.Length > index)
                 serialNumber = PNPDeviceID.Substring(index);
 
-            return new SerialPortEventArgs((string)queryObj["DeviceID"], vid, pid, serialNumber, PNPDeviceID);
+            return new SerialPortEventArgs(portName, vid, pid, serialNumber, PNPDeviceID);
+        }
+
+        private string ExtractCOMPort(string input)
+        {
+            // Regular expression pattern to match COM port
+            var pattern = @"COM\d+";
+
+            // Find match in the input string
+            var match = Regex.Match(input, pattern, RegexOptions.IgnoreCase);
+
+            // If match is successful, return the value, else return an empty string
+            return match.Success ? match.Value : string.Empty;
         }
 
         private bool CheckIDMatch(SerialPortEventArgs serialPortEventArgs)
@@ -195,7 +217,7 @@ namespace CockpitHardwareHUB_v2.Classes
         {
             var instance = e.NewEvent.GetPropertyValue("TargetInstance") as ManagementBaseObject;
             SerialPortEventArgs serialPortEventArgs = CreatePortArgs(instance);
-            if (CheckIDMatch(serialPortEventArgs))
+            if ((serialPortEventArgs != null) && CheckIDMatch(serialPortEventArgs))
             {
                 OnPortAddedEvent?.Invoke(this, serialPortEventArgs);
             }
@@ -205,7 +227,7 @@ namespace CockpitHardwareHUB_v2.Classes
         {
             var instance = e.NewEvent.GetPropertyValue("TargetInstance") as ManagementBaseObject;
             SerialPortEventArgs serialPortEventArgs = CreatePortArgs(instance);
-            if (CheckIDMatch(serialPortEventArgs))
+            if ((serialPortEventArgs != null) && CheckIDMatch(serialPortEventArgs))
             {
                 OnPortRemovedEvent?.Invoke(this, serialPortEventArgs);
             }

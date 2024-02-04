@@ -146,7 +146,7 @@ namespace CockpitHardwareHUB_v2.Classes
                         Logging.Log(LogLevel.Info, LoggingSource.APP, () => $"DeviceServer.AddDevice: {device} successfully added");
                         return;
                     }
-                    Thread.Sleep(1000); // just let it cool down, and try again later
+                    Thread.Sleep(12000); // Arduino's might be in a special state that need 10 seconds to "get back to normal"
                 }
 
                 // if we fail after 5 times, close the device
