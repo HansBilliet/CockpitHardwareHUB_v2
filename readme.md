@@ -1,6 +1,6 @@
-[![GitHub release (version 1.2.0)](https://img.shields.io/badge/Executables-v2.1.0-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/Executables)
-[![GitHub release (version 1.2.3.0)](https://img.shields.io/badge/WASM--Module-v1.2.0.0-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/WASM%20Module)
-[![GitHub release (version 1.2.0)](https://img.shields.io/badge/Documentation-v2.1.0-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/CockpitHardwareHUB%20User%20Manual.pdf)
+[![GitHub release (version 1.2.1)](https://img.shields.io/badge/Executables-v2.1.1-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/Executables)
+[![GitHub release (version 1.2.0.0)](https://img.shields.io/badge/WASM--Module-v1.2.0.0-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/WASM%20Module)
+[![GitHub release (version 1.2.1)](https://img.shields.io/badge/Documentation-v2.1.0-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/CockpitHardwareHUB%20User%20Manual.pdf)
 
 # CockpitHardwareHUB_v2
 
@@ -55,7 +55,9 @@ The GitHub repository contains 2 folders that allow to immediately use the appli
 - [WASM module](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/WASM%20Module) - The folder 'wasimcommander-module' needs to be copied in the Community folder of MSFS 2020
 
 ## Credits
-CockpitHardwareHUB_v2 is developed by Hans Billiet. The project leverages contributions from Maxim Paperno who is the creator of [WASimCommander](https://github.com/mpaperno/WASimCommander/tree/). CockpitHardwarHUB_v2 uses the WASimCommander WASM module and a slightly adapted version of WASimCommander.WASimClient.dll (v1.2.0.1). Both are included in this repository.
+CockpitHardwareHUB_v2 is developed by Hans Billiet. The project leverages contributions from Maxim Paperno who is the creator of [WASimCommander](https://github.com/mpaperno/WASimCommander), and Paul van Dinther for the module [SerialPortManager.cs](https://github.com/dinther/SerialPortManager).
+
+CockpitHardwarHUB_v2 uses the WASimCommander WASM module and a slightly adapted version of WASimCommander.WASimClient.dll (v1.2.0.1). Both are included in this repository. SerialPortManager.cs has been adapted to allow it to find a broader range of devices.
 
 ## Copyright License and Disclaimer
 - Copyright: Hans Billiet; All Rights Reserved.
