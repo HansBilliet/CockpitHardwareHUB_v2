@@ -70,14 +70,6 @@ namespace CockpitHardwareHUB_v2.Classes
             try
             {
                 bool checkID = _vendorID + _productID != 0 || !string.IsNullOrEmpty(SerialNumber);
-                // Suggested by 'CrossWinnd' on FS forum
-                // Apparantly, the original SELECT statement seems not to work with some FTDI chips
-                // and by extesion ay RS232 COM type devices.
-                // A better SELECT statement that should solve that issue is below.
-                // “SELECT DeviceID, PNPDeviceID FROM Win32_PnPEntity WHERE Name LIKE ‘%(COM[0-9]%’”
-                // This should find all devices with names including '(COMn', meaning (COM1), (COM2), ... (COM10), ...
-                // string queryString = "SELECT DeviceID, PNPDeviceID FROM Win32_PnPEntity WHERE Name LIKE ‘%COM([0-9]%’";
-                // string queryString = "SELECT DeviceID, PNPDeviceID FROM Win32_SerialPort";
                 string queryString = "Select * From Win32_PnPEntity where PnPClass = 'Ports' and Name like '%COM%'";
 
                 if (checkID)
@@ -152,7 +144,6 @@ namespace CockpitHardwareHUB_v2.Classes
             _watcherQuery = new WqlEventQuery();
             _watcherQuery.EventClassName = eventType;
             _watcherQuery.WithinInterval = new TimeSpan(0, 0, 2);
-            // _watcherQuery.Condition = @"TargetInstance ISA 'Win32_SerialPort'";
             _watcherQuery.Condition = @"TargetInstance ISA 'Win32_PnPEntity'";
             return new ManagementEventWatcher(_scope, _watcherQuery);
         }

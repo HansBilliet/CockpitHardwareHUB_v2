@@ -155,6 +155,7 @@ namespace CockpitHardwareHUB_v2.Classes
 
         internal string sValue { get; set; } = "";
         internal double[] dValue = new double[5];
+        internal bool bHasValue = false;
 
         // keep list of COMDevices that are interested in listening to a Read variable - value is translated iPropId
         private readonly Dictionary<COMDevice, int> _Listeners = new();
@@ -526,11 +527,15 @@ namespace CockpitHardwareHUB_v2.Classes
             else
                 Logging.Log(LogLevel.Error, LoggingSource.VAR, () => $"SimVar.ConvertDataRequestRecordToString: {dr.requestId} \"{dr.nameOrCode}\" - Conversion failed");
 
+            bHasValue = bConversionSucceeded;
+
             return bConversionSucceeded;
         }
 
         internal bool SetValueOfSimVar(string sData)
         {
+            bHasValue = true;
+
             Array.Clear(dValue, 0, dValue.Length);
             sValue = sData;
             if (sData == "")
@@ -586,6 +591,8 @@ namespace CockpitHardwareHUB_v2.Classes
                 sValue = "0";
                 Logging.Log(LogLevel.Error, LoggingSource.VAR, () => $"SimVar.SetValueOfSimVar: \"{sData}\" contains not all valid [{ValType}] types");
             }
+
+            bHasValue = bConversionSucceeded;
 
             return bConversionSucceeded;
         }

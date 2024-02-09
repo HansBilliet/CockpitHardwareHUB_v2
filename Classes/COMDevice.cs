@@ -97,9 +97,15 @@ namespace CockpitHardwareHUB_v2.Classes
                 _serialPort.Parity = Parity.None;
                 _serialPort.StopBits = StopBits.One;
 
+                // the below forces Arduino's to reboot
+                _serialPort.DtrEnable = true;
+                _serialPort.RtsEnable = true;
+
                 _serialPort.NewLine = "\n";
 
-                _serialPort.ReadTimeout = 300;
+                // initial ReadTimeout of 2 seconds is to guarantee that Arduino's left the boot-cycle
+                // this is unlikely to happen anyway, because the initial "Ack-sequence" should have occured earlier
+                _serialPort.ReadTimeout = 2000;
                 _serialPort.WriteTimeout = 100;
             }
             else
@@ -165,6 +171,12 @@ namespace CockpitHardwareHUB_v2.Classes
                 try
                 {
                     _serialPort.Open();
+
+                    // Wait for Ack-Sequence. This is a way to be sure that an Arduino has left its boot cycle.
+                    // Devices not sending a Ack-Sequence will result in a TimeoutException after 2 seconds.
+                    _serialPort.ReadLine();
+                    _serialPort.ReadTimeout = 200; // reduce ReadTimeout
+
                     bSuccess = true;
                 }
                 catch (UnauthorizedAccessException)
@@ -176,10 +188,11 @@ namespace CockpitHardwareHUB_v2.Classes
                 }
                 catch (TimeoutException ex)
                 {
-                    if (_serialPort.IsOpen)
-                        _serialPort.Close();
-                    Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.Open {PortName}: TimeoutException {ex.Message}");
-                    return false;
+                    // This can only be caused by the 'ReadLine()'.
+                    // It means that we deal with a device that is not sending an Ack-sequence on startup, which is fine.
+                    Logging.Log(LogLevel.Info, LoggingSource.DEV, () => $"COMDevice.Open {PortName}: TimeoutException (missing Ack-sequence) {ex.Message}");
+                    _serialPort.ReadTimeout = 200; // reduce ReadTimeout
+                    return true;
                 }
                 catch (Exception ex)
                 {
