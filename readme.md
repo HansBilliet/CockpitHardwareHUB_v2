@@ -1,5 +1,5 @@
 [![GitHub release (version 1.2.1)](https://img.shields.io/badge/Executables-v2.1.1-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/Executables)
-[![GitHub release (version 1.2.0.0)](https://img.shields.io/badge/WASM--Module-v1.2.0.0-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/WASM%20Module)
+[![GitHub release (version 1.2.3.0)](https://img.shields.io/badge/WASM--Module-v1.2.0.0-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/WASM%20Module)
 [![GitHub release (version 1.2.1)](https://img.shields.io/badge/Documentation-v2.1.1-blue)](https://github.com/HansBilliet/CockpitHardwareHUB_v2/tree/master/CockpitHardwareHUB%20User%20Manual.pdf)
 
 # CockpitHardwareHUB_v2 v1.2.1
