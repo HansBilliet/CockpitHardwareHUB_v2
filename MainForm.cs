@@ -156,9 +156,6 @@ namespace CockpitHardwareHUB_v2
 
         private void UpdateVirtualDeviceUIElements()
         {
-            if (_bSilentMode)
-                return;
-
             if (SimClient.IsConnected)
             {
                 txtExecCalcCode.Enabled = !_bSilentMode;
