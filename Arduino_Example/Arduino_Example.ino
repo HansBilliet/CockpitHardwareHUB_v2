@@ -2,7 +2,7 @@
 #include "src/LedControl-1.0.6/LedControl.h"
 
 // Command related items
-#define CMD_SIZE 100
+#define CMD_SIZE 512
 char sBuffer[CMD_SIZE];
 char sCommand[CMD_SIZE];
 char* sParameter;
@@ -17,14 +17,14 @@ const long baudrate = 500000;
 const String sIdent = "TEST Module\n";
 const String sProcessor = "ARDUINO\n";
 
-// variables (variables start at 001
-const char *Variables[] = {
+// Properties (Properties start at 001
+const char *Properties[] = {
   "INT32_RW_L:A32NX_EFIS_L_OPTION,enum",                // 001
   "VOID_K:A32NX.FCU_HDG_INC",                           // 002
   "VOID_K:A32NX.FCU_HDG_DEC",                           // 003
   "INT32_R_L:A32NX_AUTOPILOT_HEADING_SELECTED,degrees", // 004
   };
-size_t nVariables = sizeof(Variables)/sizeof(Variables[0]);
+size_t nProperties = sizeof(Properties)/sizeof(Properties[0]);
 
 // Easy way to toggle an LED
 void ToggleLed(int pin) { digitalWrite(pin, !digitalRead(pin)); }
@@ -136,7 +136,6 @@ void setup() {
 void loop() {
   digitalWrite(LED_BUILTIN, LOW);
 
-  // put your main code here, to run repeatedly:
   if (bCmdReady) {
 
     // Process IDENT command
@@ -147,9 +146,9 @@ void loop() {
 
     // Process REGISTER command
     else if (strcmp(sCommand, "REGISTER") == 0) {
-      for (int i = 0; i < nVariables; i++)
+      for (int i = 0; i < nProperties; i++)
       {
-        Serial.print(Variables[i]);
+        Serial.print(Properties[i]);
         Serial.print("\n");
       }
       Serial.print("\n");
