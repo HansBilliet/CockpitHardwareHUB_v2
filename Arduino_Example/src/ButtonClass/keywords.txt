@@ -1,0 +1,22 @@
+#######################################
+# Syntax Coloring Map For LedControl
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+ButtonClass	KEYWORD1
+ButtonStates	KEYWORD2
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+ButtonState	KEYWORD2
+ToString	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
