@@ -21,8 +21,6 @@
   <ItemGroup>
     <Reference Include="WASimCommander.WASimClient">
       <HintPath>..\..\WASimCommander\DLL\WASimCommander.WASimClient.dll</HintPath>
-      <Private>True</Private>
-      <SpecificVersion>False</SpecificVersion>
     </Reference>
   </ItemGroup>
 

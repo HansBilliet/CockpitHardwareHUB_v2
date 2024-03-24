@@ -268,7 +268,7 @@ namespace CockpitHardwareHUB_v2.Classes
                         if (simVar.bCustomEvent)
                         {
                             // Custom Events
-                            if ((hr = _WASimClient.registerCustomEvent(simVar.sVarName, out uint externalId)) != HR.OK)
+                            if ((hr = _WASimClient.registerCustomKeyEvent(simVar.sVarName, out uint externalId)) != HR.OK)
                             {
                                 Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.RegisterSimVar: " +
                                     $"Custom 'K'-var \"{simVar.sVarName}\" registerCustomEvent failed with {hr}");
@@ -373,7 +373,7 @@ namespace CockpitHardwareHUB_v2.Classes
                     if (simVar.bWrite && simVar.bCustomEvent)
                     {
                         // Only Custom Events can be unregistered
-                        if ((hr = _WASimClient.removeCustomEvent((uint)simVar.ExternalId)) != HR.OK)
+                        if ((hr = _WASimClient.removeCustomKeyEvent((uint)simVar.ExternalId)) != HR.OK)
                             Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"SimClient.UnregisterSimVar: " +
                                 $"Custom 'K'-var \"{simVar.sVarName}\" removeCustomEvent failed with {hr}");
                         else
