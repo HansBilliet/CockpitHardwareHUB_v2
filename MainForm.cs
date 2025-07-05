@@ -10,7 +10,7 @@ namespace CockpitHardwareHUB_v2
     public partial class MainForm : Form
     {
         // Version
-        private const string sVersion = "v2.1.1 - 09FEB2024";
+        private const string sVersion = "v2.1.2 - 05JUL2025";
 
         // Store the silent mode option
         private volatile bool _bSilentMode = false;

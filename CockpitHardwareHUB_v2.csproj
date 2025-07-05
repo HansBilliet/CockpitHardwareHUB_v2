@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net7.0-windows7.0</TargetFramework>
+    <TargetFramework>net8.0-windows7.0</TargetFramework>
     <Nullable>disable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -20,7 +20,7 @@
 
   <ItemGroup>
     <Reference Include="WASimCommander.WASimClient">
-      <HintPath>..\..\WASimCommander\DLL\WASimCommander.WASimClient.dll</HintPath>
+      <HintPath>Executables\WASimCommander.WASimClient.dll</HintPath>
     </Reference>
   </ItemGroup>
 
