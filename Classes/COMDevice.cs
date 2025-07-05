@@ -424,16 +424,31 @@ namespace CockpitHardwareHUB_v2.Classes
                             if ((sbCmd.Length == 1) && (sbCmd[0] == 'A'))
                                 // ACK sequence received, release TxPump
                                 _mreAck.Set();
-                            else if ((sbCmd.Length >= 4) && (sbCmd[3] == '=') && int.TryParse(sbCmd.ToString().AsSpan(0, 3), out int iPropId))
+                            else if ((sbCmd.Length >= 4) && int.TryParse(sbCmd.ToString().AsSpan(0, 3), out int iPropId))
                             {
-                                // Command received with format 'NNN=...'.
+                                // Command received with format 'NNN=...' or 'NNN?'
                                 Logging.Log(LogLevel.Debug, LoggingSource.DEV, () => $"COMDevice.RxPump: {this} Command = \"{sbCmd}\"");
                                 if (!ct.IsCancellationRequested)
                                 {
-                                    PropertyPool.TriggerProperty(_Properties[iPropId-1].iVarId, sbCmd.ToString().AsSpan(4).ToString());
+                                    switch (sbCmd[3])
+                                    {
+                                        case '=': // Command received with format 'NNN=...'.
+                                            PropertyPool.TriggerProperty(_Properties[iPropId - 1].iVarId, sbCmd.ToString().AsSpan(4).ToString());
+                                            break;
+
+                                        case '?': // Command received with format 'NNN?'.
+
+                                            PropertyPool.FetchProperty(_Properties[iPropId - 1].iVarId);
+                                            break;
+
+                                        default:
+                                            Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.RxPump: {this} Unknown command format \"{sbCmd}\"");
+                                            break;
+                                    }
                                     stats._cmdRxCnt = Interlocked.Increment(ref stats._cmdRxCnt);
                                 }
                             }
+
                             sbCmd.Clear();
                         }
                     }

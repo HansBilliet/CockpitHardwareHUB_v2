@@ -2,6 +2,7 @@ using CockpitHardwareHUB_v2.Classes;
 using Microsoft.Win32;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using WASimCommander.CLI.Enums;
 using Timer = System.Windows.Forms.Timer;
 
@@ -576,27 +577,26 @@ namespace CockpitHardwareHUB_v2
             }
         }
 
-        private void SendSimVar(bool bRead)
+        private void SendSimVar(bool bToDevice)
         {
-            if (txtCommand.Text == "")
+            // Match 4 digits, optional '=', optional value after '='
+            var match = Regex.Match(txtCommand.Text, @"^(\d{4})(?:=(.*))?$");
+
+            if (!match.Success)
             {
                 MessageBox.Show("Enter an existing Variable number with optional data in the input field." + Environment.NewLine + Environment.NewLine +
                                 "Accepted formats are:" + Environment.NewLine +
-                                " NNN" + Environment.NewLine +
-                                " NNN=" + Environment.NewLine +
-                                " NNN=Data", "Input required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                                " NNNN" + Environment.NewLine +
+                                " NNNN=" + Environment.NewLine +
+                                " NNNN=Data", "Input required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
                 return;
             }
 
-            // Split the txtSimVar input by '='
-            string[] parts = txtCommand.Text.Split(new char[] { '=' }, 2);
-            string sCmd = parts[0];
-            string sData = parts.Length > 1 ? parts[1] : "";
-
-            // Check if first part is a number
-            if (!int.TryParse(sCmd, out int iVarId))
+            // Check if first part is a number - probably overkill since regex already captures it, but let's be safe
+            if (!int.TryParse(match.Groups[1].Value, out int iVarId))
             {
-                MessageBox.Show($"[{sCmd}] is not a valid number.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"[{match.Groups[1].Value}] is not a valid number.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
@@ -608,25 +608,44 @@ namespace CockpitHardwareHUB_v2
                 return;
             }
 
-            if (bRead ? !simVar.bRead : !simVar.bWrite)
+            if (bToDevice)
             {
-                MessageBox.Show($"SimVar with Id [{iVarId}] is not a \"{(bRead ? "Read" : "Write")}\" variable.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
+                // If sending to a device, the simVar should be 'Read'
+                if (!simVar.bRead)
+                {
+                    MessageBox.Show($"SimVar with Id [{iVarId}] is not a \"Read\" variable.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
 
-            // If there is data available, check if it matches with the ValType of the SimVar
-            if (!simVar.SetValueOfSimVar(sData))
-            {
-                MessageBox.Show($"SimVar [{iVarId}] requires data of type \"{simVar.ValType}\".", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
+                // If the SimVar is a "Read" variable, it should not have data
+                if (txtCommand.Text.Length != 4)
+                {
+                    MessageBox.Show($"SimVar with Id [{iVarId}] is a \"Read\" variable and can not take data.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
 
-            if (bRead)
                 // Dispatch SimVar to all devices that are listening
                 simVar.DispatchSimVar();
+            }
             else
+            {
+                // If sending to MSFS, the simVar should be 'Write'
+                if (!simVar.bWrite)
+                {
+                    MessageBox.Show($"SimVar with Id [{iVarId}] is not a \"Write\" variable.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                // If there is data available, check if it matches with the ValType of the SimVar
+                if (!simVar.SetValueOfSimVar(match.Groups[2].Value))
+                {
+                    MessageBox.Show($"SimVar [{iVarId}] requires data of type \"{simVar.ValType}\".", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
                 // Send SimVar to MSFS
                 SimClient.TriggerSimVar(simVar);
+            }
         }
 
         private void btnSendToMSFS_Click(object sender, EventArgs e)

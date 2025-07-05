@@ -106,5 +106,25 @@ namespace CockpitHardwareHUB_v2.Classes
 
             SimClient.TriggerSimVar(simVar);
         }
+
+        internal static void FetchProperty(int iVarId)
+        {
+            // Check if variable exists
+            SimVar simVar = SimVar.GetSimVarById(iVarId);
+            if (simVar == null)
+            {
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"PropertyPool.FetchProperty: SimVar {iVarId} not found");
+                return;
+            }
+
+            // Check if variable is readable
+            if (!simVar.bRead)
+            {
+                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"PropertyPool.FetchProperty: \"{simVar.sPropStr}\" is not a Read property");
+                return;
+            }
+
+            simVar.DispatchSimVar();
+        }
     }
 }
