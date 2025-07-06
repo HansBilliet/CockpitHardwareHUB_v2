@@ -1,4 +1,5 @@
-﻿using WASimCommander.CLI.Enums;
+﻿using System.Web;
+using WASimCommander.CLI.Enums;
 
 namespace CockpitHardwareHUB_v2.Classes
 {
@@ -81,7 +82,7 @@ namespace CockpitHardwareHUB_v2.Classes
             }
         }
 
-        internal static void TriggerProperty(int iVarId, string sData)
+        internal static void TriggerProperty(int iVarId, char cOperand, string sData)
         {
             // Check if variable exists
             SimVar simVar = SimVar.GetSimVarById(iVarId);
@@ -91,40 +92,34 @@ namespace CockpitHardwareHUB_v2.Classes
                 return;
             }
 
-            // Check if variable is writeable
-            if (!simVar.bWrite)
+            if (cOperand == '=')
             {
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"PropertyPool.TriggerProperty: \"{simVar.sPropStr}\" is not a Write property");
-                return;
+                // Command 'NNN=[optional data]'
+                if (!simVar.bWrite)
+                {
+                    Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"PropertyPool.TriggerProperty: \"{simVar.sPropStr}\" is not a Write property");
+                    return;
+                }
+
+                if (!simVar.SetValueOfSimVar(sData))
+                {
+                    Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"PropertyPool.TriggerProperty: \"{simVar.sPropStr}\" requires data of type [{simVar.ValType}].");
+                    return;
+                }
+
+                SimClient.TriggerSimVar(simVar);
             }
+            else
+            { 
+                // Command 'NNN?'
+                if (!simVar.bRead)
+                {
+                    Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"PropertyPool.TriggerProperty: \"{simVar.sPropStr}\" is not a Read property");
+                    return;
+                }
 
-            if (!simVar.SetValueOfSimVar(sData))
-            {
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"PropertyPool.TriggerProperty: \"{simVar.sPropStr}\" requires data of type [{simVar.ValType}].");
-                return;
+                simVar.DispatchSimVar();
             }
-
-            SimClient.TriggerSimVar(simVar);
-        }
-
-        internal static void FetchProperty(int iVarId)
-        {
-            // Check if variable exists
-            SimVar simVar = SimVar.GetSimVarById(iVarId);
-            if (simVar == null)
-            {
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"PropertyPool.FetchProperty: SimVar {iVarId} not found");
-                return;
-            }
-
-            // Check if variable is readable
-            if (!simVar.bRead)
-            {
-                Logging.Log(LogLevel.Error, LoggingSource.APP, () => $"PropertyPool.FetchProperty: \"{simVar.sPropStr}\" is not a Read property");
-                return;
-            }
-
-            simVar.DispatchSimVar();
         }
     }
 }

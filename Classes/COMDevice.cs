@@ -1,7 +1,11 @@
 ﻿using System.Collections.Concurrent;
 using System.IO.Ports;
+using System.Security.Policy;
 using System.Text;
+using System.Text.RegularExpressions;
 using WASimCommander.CLI.Enums;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using static System.Windows.Forms.Design.AxImporter;
 
 namespace CockpitHardwareHUB_v2.Classes
 {
@@ -424,31 +428,30 @@ namespace CockpitHardwareHUB_v2.Classes
                             if ((sbCmd.Length == 1) && (sbCmd[0] == 'A'))
                                 // ACK sequence received, release TxPump
                                 _mreAck.Set();
-                            else if ((sbCmd.Length >= 4) && int.TryParse(sbCmd.ToString().AsSpan(0, 3), out int iPropId))
+                            else
                             {
-                                // Command received with format 'NNN=...' or 'NNN?'
-                                Logging.Log(LogLevel.Debug, LoggingSource.DEV, () => $"COMDevice.RxPump: {this} Command = \"{sbCmd}\"");
-                                if (!ct.IsCancellationRequested)
+                                // Parse command 'NNN=[optional data]' or 'NNN?' with Regex
+                                // ^        Start of string
+                                // (\d3)    Capture group 1: 3 digits
+                                // ([=?])   Capture group 2: must be = or ?
+                                // (.*)     Capture group 3: any characters(optional)
+                                // $        End of string
+                                var match = Regex.Match(sbCmd.ToString(), @"^(\d{3})([=?])(.*)$");
+
+                                if (match.Success)
                                 {
-                                    switch (sbCmd[3])
+                                    Logging.Log(LogLevel.Debug, LoggingSource.DEV, () => $"COMDevice.RxPump: {this} Command = \"{sbCmd}\"");
+                                    if (!ct.IsCancellationRequested)
                                     {
-                                        case '=': // Command received with format 'NNN=...'.
-                                            PropertyPool.TriggerProperty(_Properties[iPropId - 1].iVarId, sbCmd.ToString().AsSpan(4).ToString());
-                                            break;
-
-                                        case '?': // Command received with format 'NNN?'.
-
-                                            PropertyPool.FetchProperty(_Properties[iPropId - 1].iVarId);
-                                            break;
-
-                                        default:
-                                            Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.RxPump: {this} Unknown command format \"{sbCmd}\"");
-                                            break;
+                                        int iPropId = int.Parse(match.Groups[1].Value);
+                                        char cOperand = match.Groups[2].Value[0];
+                                        PropertyPool.TriggerProperty(_Properties[iPropId - 1].iVarId, cOperand, match.Groups[3].Value);
                                     }
-                                    stats._cmdRxCnt = Interlocked.Increment(ref stats._cmdRxCnt);
                                 }
+                                else
+                                    // Only 'NNN=[optional data]' or 'NNN?' are accepted
+                                    Logging.Log(LogLevel.Error, LoggingSource.DEV, () => $"COMDevice.RxPump: {this} Unknown command format = \"{sbCmd}\"");
                             }
-
                             sbCmd.Clear();
                         }
                     }
