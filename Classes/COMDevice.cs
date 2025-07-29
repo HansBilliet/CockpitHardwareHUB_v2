@@ -443,6 +443,7 @@ namespace CockpitHardwareHUB_v2.Classes
                                     Logging.Log(LogLevel.Debug, LoggingSource.DEV, () => $"COMDevice.RxPump: {this} Command = \"{sbCmd}\"");
                                     if (!ct.IsCancellationRequested)
                                     {
+                                        stats._cmdRxCnt = Interlocked.Increment(ref stats._cmdRxCnt);
                                         int iPropId = int.Parse(match.Groups[1].Value);
                                         char cOperand = match.Groups[2].Value[0];
                                         PropertyPool.TriggerProperty(_Properties[iPropId - 1].iVarId, cOperand, match.Groups[3].Value);
